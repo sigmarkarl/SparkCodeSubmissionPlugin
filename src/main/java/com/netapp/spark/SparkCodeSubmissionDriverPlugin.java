@@ -133,11 +133,11 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                         .mode(SaveMode.Overwrite)
                         .save(codeSubmission.resultsPath()));
             }
-            case PYTHON -> runPython(codeSubmission.code(), codeSubmission.arguments(), codeSubmission.env());
+            case PYTHON -> runPython(codeSubmission.code(), codeSubmission.arguments(), codeSubmission.environment());
             case PYTHON_B64 -> {
                 var pythonCodeBase64 = codeSubmission.code();
                 var pythonCode = new String(Base64.getDecoder().decode(pythonCodeBase64));
-                runPython(pythonCode, codeSubmission.arguments(), codeSubmission.env());
+                runPython(pythonCode, codeSubmission.arguments(), codeSubmission.environment());
             }
             case R -> {
                 var rCode = codeSubmission.code();
