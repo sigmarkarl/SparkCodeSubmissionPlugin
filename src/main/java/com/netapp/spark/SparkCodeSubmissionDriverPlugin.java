@@ -14,6 +14,8 @@ import org.apache.spark.sql.SaveMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Tuple2;
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
@@ -269,5 +271,9 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         var sparkCodeSubmissionPlugin = new SparkCodeSubmissionPlugin();
         var sparkContext = new SparkContext(args[0], args[1]);
         sparkCodeSubmissionPlugin.driverPlugin().init(sparkContext, null);
+        var pid = ProcessHandle.current().pid();
+        System.err.println("Started code submission server with pid: " + pid);
+        var sigchld = new Signal("CHLD");
+        Signal.handle(sigchld, SignalHandler.SIG_IGN);
     }
 }
