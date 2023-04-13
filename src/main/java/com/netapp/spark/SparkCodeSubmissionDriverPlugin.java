@@ -38,7 +38,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 
     public SparkCodeSubmissionDriverPlugin() {
-        this(9001);
+        this(-1);
     }
 
     public SparkCodeSubmissionDriverPlugin(int port) {
@@ -208,15 +208,24 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     @Override
     public Map<String,String> init(SparkContext sc, PluginContext myContext) {
         logger.info("Starting code submission server");
-        System.err.println("Starting code submission server");
         try {
             alterPysparkInitializeContext();
+
+            System.err.println("conn info");
+            System.err.println(System.getenv("_PYSPARK_DRIVER_CONN_HOST"));
+            System.err.println(System.getenv("_PYSPARK_DRIVER_CONN_PORT"));
+            System.err.println(System.getenv("_PYSPARK_DRIVER_CONN_SECRET"));
+            System.err.println(System.getenv("_PYSPARK_DRIVER_CONN_INFO_PATH"));
 
             initPy4JServer(sc);
             initRBackend();
 
             var mapper = new ObjectMapper();
             var sqlContext = new org.apache.spark.sql.SQLContext(sc);
+
+            if (port == -1) {
+                port = Integer.parseInt(sc.getConf().get("spark.code.submission.port", "9001"));
+            }
 
             codeSubmissionServer = Undertow.builder()
                     .addHttpListener(port, "0.0.0.0")

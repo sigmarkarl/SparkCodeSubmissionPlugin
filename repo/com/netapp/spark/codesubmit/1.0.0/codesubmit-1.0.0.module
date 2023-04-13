@@ -10,7 +10,7 @@
   },
   "createdBy": {
     "gradle": {
-      "version": "8.0"
+      "version": "8.0.2"
     }
   },
   "variants": [
@@ -27,11 +27,11 @@
         {
           "name": "codesubmit-1.0.0.jar",
           "url": "codesubmit-1.0.0.jar",
-          "size": 14862,
-          "sha512": "58b78523e968f76b629a44c2e1c06bf321eb986e74f5375b66c976128c471c40077f15c39ede71aebbf46163b9b9ef856bf9d4016d1a9111eddc850caf4d0ffe",
-          "sha256": "2a354642dbb8029ce33a8b82a067b9ba735fff2802aa9a4172e2c94c70621af8",
-          "sha1": "7b5381e81136812adc213b11697bd6c30a4e845d",
-          "md5": "9a697796e88164ffbdf09570efe41071"
+          "size": 15341,
+          "sha512": "e19aa92f29981448d13f8ae852e2b2d77895d4a8b147bbad1d1fbe6ba77a2ff9f12e9b520d1b9995976d1560153941f7840a3200503b83a528d255040c08f557",
+          "sha256": "6e50140a91ef3b628b057ed11ff7127e151364563f993574efcd33e2f25c6476",
+          "sha1": "072f701a8637d6cbbbcc6d97b72610e51ac8e4dd",
+          "md5": "4130d27d618c21fd8cbff7da17c9bac2"
         }
       ]
     },
@@ -78,11 +78,11 @@
         {
           "name": "codesubmit-1.0.0.jar",
           "url": "codesubmit-1.0.0.jar",
-          "size": 14862,
-          "sha512": "58b78523e968f76b629a44c2e1c06bf321eb986e74f5375b66c976128c471c40077f15c39ede71aebbf46163b9b9ef856bf9d4016d1a9111eddc850caf4d0ffe",
-          "sha256": "2a354642dbb8029ce33a8b82a067b9ba735fff2802aa9a4172e2c94c70621af8",
-          "sha1": "7b5381e81136812adc213b11697bd6c30a4e845d",
-          "md5": "9a697796e88164ffbdf09570efe41071"
+          "size": 15341,
+          "sha512": "e19aa92f29981448d13f8ae852e2b2d77895d4a8b147bbad1d1fbe6ba77a2ff9f12e9b520d1b9995976d1560153941f7840a3200503b83a528d255040c08f557",
+          "sha256": "6e50140a91ef3b628b057ed11ff7127e151364563f993574efcd33e2f25c6476",
+          "sha1": "072f701a8637d6cbbbcc6d97b72610e51ac8e4dd",
+          "md5": "4130d27d618c21fd8cbff7da17c9bac2"
         }
       ]
     }
