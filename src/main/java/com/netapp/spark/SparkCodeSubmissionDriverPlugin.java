@@ -19,6 +19,7 @@ import sun.misc.SignalHandler;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
@@ -32,6 +33,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     int port;
     ExecutorService virtualThreads;
     Py4JServer py4jServer;
+    int pyport;
+    String secret;
     RBackend rBackend;
     int rbackendPort;
     String rbackendSecret;
@@ -52,6 +55,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
 
     private void initPy4JServer(SparkContext sc) {
         py4jServer = new Py4JServer(sc.conf());
+        pyport = py4jServer.getListeningPort();
+        secret = py4jServer.secret();
         py4jServer.start();
     }
 
@@ -74,10 +79,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         var env = pb.environment();
         env.putAll(envs);
 
-        var port = py4jServer.getListeningPort();
-        var secret = py4jServer.secret();
-
-        env.put("PYSPARK_GATEWAY_PORT", Integer.toString(port));
+        env.put("PYSPARK_GATEWAY_PORT", Integer.toString(pyport));
         env.put("PYSPARK_GATEWAY_SECRET", secret);
         env.put("PYSPARK_PIN_THREAD", "true");
 
@@ -215,16 +217,26 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             if (!path.isEmpty()) {
                 var infopath = Path.of(path);
                 if (Files.exists(infopath)) {
-                    var connInfo = Files.readString(infopath);
-                    var connInfoParts = connInfo.split(" ");
-                    port = Integer.parseInt(connInfoParts[1]);
-                } else {
-                    System.err.println("Connection info file does not exist: " + path);
-                    logger.error("Connection info file does not exist: " + path);
+                    try (var walkStream = Files.walk(infopath)) {
+                        walkStream
+                                .filter(Files::isRegularFile)
+                                .filter(p -> p.getFileName().toString().endsWith(".info"))
+                                .findFirst()
+                                .ifPresent(p -> {
+                            try {
+                                var connInfo = new DataInputStream(Files.newInputStream(p));
+                                pyport = connInfo.readInt();
+                                connInfo.readInt();
+                                secret = connInfo.readUTF();
+                            } catch (IOException e) {
+                                logger.error("Failed to delete file: " + p, e);
+                            }
+                        });
+                    }
                 }
             }
 
-            initPy4JServer(sc);
+            if (secret != null) initPy4JServer(sc);
             initRBackend();
 
             var mapper = new ObjectMapper();
