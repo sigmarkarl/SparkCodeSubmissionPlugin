@@ -211,11 +211,18 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         try {
             alterPysparkInitializeContext();
 
-            System.err.println("conn info");
-            System.err.println(System.getenv("_PYSPARK_DRIVER_CONN_HOST"));
-            System.err.println(System.getenv("_PYSPARK_DRIVER_CONN_PORT"));
-            System.err.println(System.getenv("_PYSPARK_DRIVER_CONN_SECRET"));
-            System.err.println(System.getenv("_PYSPARK_DRIVER_CONN_INFO_PATH"));
+            var path = System.getenv("_PYSPARK_DRIVER_CONN_INFO_PATH");
+            if (!path.isEmpty()) {
+                var infopath = Path.of(path);
+                if (Files.exists(infopath)) {
+                    var connInfo = Files.readString(infopath);
+                    var connInfoParts = connInfo.split(" ");
+                    port = Integer.parseInt(connInfoParts[1]);
+                } else {
+                    System.err.println("Connection info file does not exist: " + path);
+                    logger.error("Connection info file does not exist: " + path);
+                }
+            }
 
             initPy4JServer(sc);
             initRBackend();
