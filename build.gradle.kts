@@ -12,14 +12,14 @@ repositories {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(11))
+        languageVersion.set(JavaLanguageVersion.of(8))
     }
 }
 
 dependencies {
     implementation("org.apache.spark:spark-core_2.12:3.3.2")
     implementation("org.apache.spark:spark-sql_2.12:3.3.2")
-    implementation("io.undertow:undertow-core:2.3.5.Final")
+    implementation("io.dropwizard:dropwizard-core:4.0.0")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.14.2")
 
     testImplementation(platform("org.junit:junit-bom:5.9.2"))
@@ -44,15 +44,5 @@ publishing {
 }
 
 tasks.test {
-    jvmArgs = listOf(
-        "--add-opens=java.base/java.util.regex=ALL-UNNAMED",
-        "--add-opens=java.base/java.lang=ALL-UNNAMED",
-        "--add-opens=java.base/java.time=ALL-UNNAMED",
-        "--add-opens=java.base/java.util.stream=ALL-UNNAMED",
-        "--add-opens=java.base/java.nio.charset=ALL-UNNAMED",
-        "--add-opens=java.base/java.io=ALL-UNNAMED",
-        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
-        "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
-    )
     useJUnitPlatform()
 }
