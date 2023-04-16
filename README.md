@@ -45,7 +45,7 @@ if needed change to base64 encoding
 
 ```
 {
-  "type": "Python",
+  "type": "Python_base64",
   "code": "ZnJvbSBweXNwYXJrLnNxbCBpbXBvcnQgU3BhcmtTZXNzaW9uCnNwYXJrID0gU3BhcmtTZXNzaW9uLmJ1aWxkZXIubWFzdGVyKCJsb2NhbCIpLmFwcE5hbWUoInRlc3QiKS5nZXRPckNyZWF0ZSgpCnNwYXJrLnNxbCgic2VsZWN0IHJhbmRvbSgpIikud3JpdGUuZm9ybWF0KCJjc3YiKS5tb2RlKCJvdmVyd3JpdGUiKS5zYXZlKCJ0ZXN0LmNzdiIp",
   "arguments": "test.csv"
 }
