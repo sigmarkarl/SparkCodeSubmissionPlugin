@@ -22,6 +22,7 @@ import javax.tools.ToolProvider;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -69,7 +70,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         new Thread(() -> rBackend.run()).start();
     }
 
-    private Process runPythonProcess(ProcessBuilder pb, Map<String,String> envs) throws IOException {
+    private Process runPythonProcess(ProcessBuilder pb, Map<String,String> environment) throws IOException {
         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 
@@ -77,7 +78,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         //pb.redirectOutput(ProcessBuilder.Redirect.to(Path.of("python-out.log").toFile()));
 
         var env = pb.environment();
-        env.putAll(envs);
+        env.putAll(environment);
 
         env.put("PYSPARK_GATEWAY_PORT", Integer.toString(pyport));
         env.put("PYSPARK_GATEWAY_SECRET", secret);
@@ -86,11 +87,14 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         return pb.start();
     }
 
-    private void runRscript(String query) throws IOException, InterruptedException {
-        var pb  = new ProcessBuilder("Rscript");
+    private void runRscript(String query, List<String> arguments, Map<String,String> environment) throws IOException, InterruptedException {
+        var args = new ArrayList<>(Collections.singleton("Rscript"));
+        args.addAll(arguments);
+        var pb  = new ProcessBuilder(args);
         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
         var env = pb.environment();
+        env.putAll(environment);
 
         env.put("EXISTING_SPARKR_BACKEND_PORT", Integer.toString(rbackendPort));
         env.put("SPARKR_BACKEND_AUTH_SECRET", rbackendSecret);
@@ -107,6 +111,9 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         var pysparkPython = System.getenv("PYSPARK_PYTHON");
         var cmd = pysparkPython != null ? pysparkPython : "python3";
         var args = new ArrayList<>(Collections.singleton(cmd));
+        var file = Files.createTempFile("python", ".py");
+        Files.writeString(file, pythonCode);
+        args.add(file.toString());
         args.addAll(pythonArgs);
         var pb  = new ProcessBuilder(args);
         var pythonProcess = runPythonProcess(pb, pythonEnv);
@@ -127,7 +134,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         });
     }
 
-    public void submitCode(SQLContext sqlContext, CodeSubmission codeSubmission) throws IOException, ClassNotFoundException, NoSuchMethodException {
+    public void submitCode(SQLContext sqlContext, CodeSubmission codeSubmission) throws IOException, ClassNotFoundException, NoSuchMethodException, URISyntaxException {
         switch (codeSubmission.type()) {
             case SQL -> {
                 var sqlCode = codeSubmission.code();
@@ -138,34 +145,35 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                         .save(codeSubmission.resultsPath()));
             }
             case PYTHON -> runPython(codeSubmission.code(), codeSubmission.arguments(), codeSubmission.environment());
-            case PYTHON_B64 -> {
+            case PYTHON_BASE64 -> {
                 var pythonCodeBase64 = codeSubmission.code();
                 var pythonCode = new String(Base64.getDecoder().decode(pythonCodeBase64));
                 runPython(pythonCode, codeSubmission.arguments(), codeSubmission.environment());
             }
-            case R -> {
-                var rCode = codeSubmission.code();
-                virtualThreads.submit(() -> {
-                    try {
-                        runRscript(rCode);
-                    } catch (IOException | InterruptedException e) {
-                        logger.error("R Execution failed: ", e);
-                    }
-                });
-            }
+            case R -> virtualThreads.submit(() -> {
+                try {
+                    runRscript(codeSubmission.code(), codeSubmission.arguments(), codeSubmission.environment());
+                } catch (IOException | InterruptedException e) {
+                    logger.error("R Execution failed: ", e);
+                }
+            });
             case JAVA -> {
                 var javaCode = codeSubmission.code();
                 var classPath = Path.of(codeSubmission.className() + ".java");
-                Files.writeString(classPath, javaCode);
-                int exitcode = compiler.run(System.in, System.out, System.err, classPath.getFileName().toString());
+                var classLoader = this.getClass().getClassLoader();
+                var url = classLoader.getResource("test.txt");
+                assert url != null;
+                var path = Path.of(url.toURI()).getParent().resolve(classPath);
+                Files.writeString(path, javaCode);
+                int exitcode = compiler.run(System.in, System.out, System.err, path.toString());
                 if (exitcode != 0) {
                     logger.error("Java Compilation failed: " + exitcode);
                 } else {
-                    var submissionClass = this.getClass().getClassLoader().loadClass(codeSubmission.className());
+                    var submissionClass = classLoader.loadClass(codeSubmission.className());
                     var mainMethod = submissionClass.getMethod("main", String[].class);
                     virtualThreads.submit(() -> {
                         try {
-                            mainMethod.invoke(null, (Object) new String[]{});
+                            mainMethod.invoke(null, (Object) codeSubmission.arguments().toArray(String[]::new));
                         } catch (IllegalAccessException | InvocationTargetException e) {
                             logger.error("Java Execution failed: ", e);
                         }
@@ -214,7 +222,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             alterPysparkInitializeContext();
 
             var path = System.getenv("_PYSPARK_DRIVER_CONN_INFO_PATH");
-            if (!path.isEmpty()) {
+            if (path != null && !path.isEmpty()) {
                 var infopath = Path.of(path);
                 if (Files.exists(infopath)) {
                     try (var walkStream = Files.walk(infopath)) {
@@ -236,7 +244,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                 }
             }
 
-            if (secret != null) initPy4JServer(sc);
+            if (secret == null) initPy4JServer(sc);
             initRBackend();
 
             var mapper = new ObjectMapper();

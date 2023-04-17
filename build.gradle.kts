@@ -19,8 +19,8 @@ java {
 tasks.withType<JavaCompile>().configureEach { options.compilerArgs.add("--enable-preview") }
 
 dependencies {
-    implementation("org.apache.spark:spark-core_2.12:3.3.2")
-    implementation("org.apache.spark:spark-sql_2.12:3.3.2")
+    implementation("org.apache.spark:spark-core_2.12:3.4.0")
+    implementation("org.apache.spark:spark-sql_2.12:3.4.0")
     implementation("io.undertow:undertow-core:2.3.5.Final")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.14.2")
 
