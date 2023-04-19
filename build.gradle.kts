@@ -1,5 +1,6 @@
 plugins {
     id("java-library")
+    id("scala")
     id("application")
     id("maven-publish")
     id("org.graalvm.buildtools.native") version "0.9.21"
@@ -22,14 +23,24 @@ var theJvmArgs = listOf(
     "--add-opens=java.base/sun.security.action=ALL-UNNAMED"
 )
 
+/*sourceSets {
+    main {
+        withConvention(ScalaSourceSet::class) {
+            scala {
+                setSrcDirs(listOf("src/main/scala"))
+            }
+        }
+    }
+}*/
+
 repositories {
     mavenCentral()
 }
 
 jib {
     from {
-        image = "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission"
-        version = "baseimage-1.0.0"
+        image = "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission:baseimage-1.0.0"
+        //version = "baseimage-1.0.0"
         platforms {
             platform {
                 architecture = "amd64"
@@ -48,8 +59,8 @@ jib {
         }
     }
     to {
-        image = project.findProperty("APPLICATION_REPOSITORY")?.toString() ?: "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission"
-        version = "1.0.0"
+        image = project.findProperty("APPLICATION_REPOSITORY")?.toString() ?: "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission:1.0.0"
+        //version = "1.0.0"
         //tags = [project.findProperty("APPLICATION_TAG")?.toString() ?: "1.0"]
         if (project.hasProperty("REGISTRY_USER")) {
             val reg_user = project.findProperty("REGISTRY_USER")?.toString()
@@ -81,10 +92,10 @@ jib {
         //workingDirectory = "/opt/spark/work-dir/"
         //appRoot = "/opt/spark/"
         mainClass = "com.netapp.spark.SparkCodeSubmissionServer"
-        environment = mapOf("SPARK_REMOTE" to "sc://localhost")
+        //environment = mapOf("SPARK_REMOTE" to "sc://localhost")
         //environment = mapOf("JAVA_TOOL_OPTIONS" to "-Djdk.lang.processReaperUseDefaultStackSize=true --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED")
         jvmFlags = theJvmArgs
-        args = listOf("8080")
+        args = listOf("9001")
     }
 }
 
@@ -94,12 +105,19 @@ java {
     }
 }
 
-tasks.withType<JavaCompile>().configureEach { options.compilerArgs.add("--enable-preview") }
+tasks.withType<ScalaCompile>().configureEach {
+    scalaCompileOptions.additionalParameters = listOf("-target:jvm-1.8")
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.add("--enable-preview")
+}
 
 dependencies {
     implementation("org.apache.spark:spark-core_2.12:3.4.0")
     implementation("org.apache.spark:spark-sql_2.12:3.4.0")
     implementation("org.apache.spark:spark-connect_2.12:3.4.0")
+    implementation("org.apache.spark:spark-connect-client-jvm_2.12:3.4.0")
     implementation("io.undertow:undertow-core:2.3.5.Final")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.14.2")
 

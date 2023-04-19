@@ -8,7 +8,8 @@ public class SparkCodeSubmissionServer implements AutoCloseable {
 
     public SparkCodeSubmissionServer(int port) {
         this.port = port;
-        spark = SparkSession.builder().appName("SparkCodeSubmissionServer").getOrCreate();
+        var remotePath = System.getenv("SPARK_REMOTE");
+        spark = RemoteSparkSession.create(remotePath);
     }
 
     public SparkCodeSubmissionServer(int port, String master) {
