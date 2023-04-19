@@ -241,7 +241,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             var pysparkPath = Path.of(path.trim(), "context.py");
             fixContext(pysparkPath);
         } catch (IOException e) {
-            logger.error("Failed to alter pyspark initialize context", e);
+            logger.debug("Failed to alter pyspark initialize context", e);
         }
     }
 
