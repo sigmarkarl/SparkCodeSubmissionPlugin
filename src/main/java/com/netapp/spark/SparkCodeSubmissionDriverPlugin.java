@@ -9,8 +9,8 @@ import org.apache.spark.api.plugin.PluginContext;
 import org.apache.spark.api.python.Py4JServer;
 import org.apache.spark.api.r.RAuthHelper;
 import org.apache.spark.api.r.RBackend;
-import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.SaveMode;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.connect.service.SparkConnectService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,11 +55,38 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         return port;
     }
 
-    private void initPy4JServer(SparkContext sc) {
-        py4jServer = new Py4JServer(sc.conf());
-        pyport = py4jServer.getListeningPort();
-        secret = py4jServer.secret();
-        py4jServer.start();
+    private void initPy4JServer(SparkContext sc) throws IOException {
+        alterPysparkInitializeContext();
+
+        var path = System.getenv("_PYSPARK_DRIVER_CONN_INFO_PATH");
+        if (path != null && !path.isEmpty()) {
+            var infopath = Path.of(path);
+            if (Files.exists(infopath)) {
+                try (var walkStream = Files.walk(infopath)) {
+                    walkStream
+                            .filter(Files::isRegularFile)
+                            .filter(p -> p.getFileName().toString().endsWith(".info"))
+                            .findFirst()
+                            .ifPresent(p -> {
+                                try {
+                                    var connInfo = new DataInputStream(Files.newInputStream(p));
+                                    pyport = connInfo.readInt();
+                                    connInfo.readInt();
+                                    secret = connInfo.readUTF();
+                                } catch (IOException e) {
+                                    logger.error("Failed to delete file: " + p, e);
+                                }
+                            });
+                }
+            }
+        }
+
+        if (secret==null || secret.isEmpty()) {
+            py4jServer = new Py4JServer(sc.conf());
+            pyport = py4jServer.getListeningPort();
+            secret = py4jServer.secret();
+            py4jServer.start();
+        }
     }
 
     private void initRBackend() {
@@ -115,7 +142,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         runProcess(args, pythonEnv, cmd);
     }
 
-    public String submitCode(SQLContext sqlContext, CodeSubmission codeSubmission) throws IOException, ClassNotFoundException, NoSuchMethodException, URISyntaxException, ExecutionException, InterruptedException {
+    public String submitCode(SparkSession sqlContext, CodeSubmission codeSubmission) throws IOException, ClassNotFoundException, NoSuchMethodException, URISyntaxException, ExecutionException, InterruptedException {
         var defaultResponse = codeSubmission.type() + " code submitted";
         switch (codeSubmission.type()) {
             case SQL -> {
@@ -129,16 +156,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                                 return new ObjectMapper().writeValueAsString(json);
                             }
                             case "csv" -> {
-                                var csv = df.toJavaRDD().map(row -> {
-                                    var sb = new StringBuilder();
-                                    sb.append(row.get(0));
-                                    for (int i = 1; i < row.length(); i++) {
-                                        sb.append(",");
-                                        sb.append(row.get(i));
-                                    }
-                                    return sb.toString();
-                                }).collect();
-                                return new ObjectMapper().writeValueAsString(csv);
+                                return String.join(",", df.collectAsList().toArray(String[]::new));
                             }
                             default -> {
                                 var rows = df.collectAsList();
@@ -245,63 +263,39 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         }
     }
 
+    void startCodeSubmissionServer(SparkSession session) {
+        var mapper = new ObjectMapper();
+        codeSubmissionServer = Undertow.builder()
+                .addHttpListener(port, "0.0.0.0")
+                .setHandler(new BlockingHandler(exchange -> {
+                    var codeSubmissionStr = new String(exchange.getInputStream().readAllBytes());
+                    try {
+                        var codeSubmission = mapper.readValue(codeSubmissionStr, CodeSubmission.class);
+                        var response = submitCode(session, codeSubmission);
+                        exchange.getResponseSender().send(response);
+                    } catch (JsonProcessingException e) {
+                        logger.error("Failed to parse code submission", e);
+                        exchange.getResponseSender().send("Failed to parse code submission");
+                    }
+                }))
+                .build();
+
+        System.err.println("Using port "+ port);
+        codeSubmissionServer.start();
+    }
+
     @Override
     public Map<String,String> init(SparkContext sc, PluginContext myContext) {
         logger.info("Starting code submission server");
+        if (port == -1) {
+            port = Integer.parseInt(sc.getConf().get("spark.code.submission.port", "9001"));
+        }
         try {
-            //alterPysparkInitializeContext();
-            //SparkConnectService.start();
-
-            var path = System.getenv("_PYSPARK_DRIVER_CONN_INFO_PATH");
-            if (path != null && !path.isEmpty()) {
-                var infopath = Path.of(path);
-                if (Files.exists(infopath)) {
-                    try (var walkStream = Files.walk(infopath)) {
-                        walkStream
-                                .filter(Files::isRegularFile)
-                                .filter(p -> p.getFileName().toString().endsWith(".info"))
-                                .findFirst()
-                                .ifPresent(p -> {
-                            try {
-                                var connInfo = new DataInputStream(Files.newInputStream(p));
-                                pyport = connInfo.readInt();
-                                connInfo.readInt();
-                                secret = connInfo.readUTF();
-                            } catch (IOException e) {
-                                logger.error("Failed to delete file: " + p, e);
-                            }
-                        });
-                    }
-                }
-            }
-
-            if (secret == null) initPy4JServer(sc);
+            SparkConnectService.start();
+            initPy4JServer(sc);
             initRBackend();
-
-            var mapper = new ObjectMapper();
-            var sqlContext = new org.apache.spark.sql.SQLContext(sc);
-
-            if (port == -1) {
-                port = Integer.parseInt(sc.getConf().get("spark.code.submission.port", "9001"));
-            }
-
-            codeSubmissionServer = Undertow.builder()
-                    .addHttpListener(port, "0.0.0.0")
-                    .setHandler(new BlockingHandler(exchange -> {
-                        var codeSubmissionStr = new String(exchange.getInputStream().readAllBytes());
-                        try {
-                            var codeSubmission = mapper.readValue(codeSubmissionStr, CodeSubmission.class);
-                            var response = submitCode(sqlContext, codeSubmission);
-                            exchange.getResponseSender().send(response);
-                        } catch (JsonProcessingException e) {
-                            logger.error("Failed to parse code submission", e);
-                            exchange.getResponseSender().send("Failed to parse code submission");
-                        }
-                    }))
-                    .build();
-
-            System.err.println("Using port "+ port);
-            codeSubmissionServer.start();
+            var session = new SparkSession(sc);
+            startCodeSubmissionServer(session);
         } catch (RuntimeException e) {
             logger.error("Failed to start code submission server at port: " + port, e);
             throw e;
