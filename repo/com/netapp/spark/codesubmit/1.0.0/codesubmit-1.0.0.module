@@ -10,7 +10,7 @@
   },
   "createdBy": {
     "gradle": {
-      "version": "8.0.2"
+      "version": "8.1"
     }
   },
   "variants": [
@@ -19,7 +19,7 @@
       "attributes": {
         "org.gradle.category": "library",
         "org.gradle.dependency.bundling": "external",
-        "org.gradle.jvm.version": 19,
+        "org.gradle.jvm.version": 17,
         "org.gradle.libraryelements": "jar",
         "org.gradle.usage": "java-api"
       },
@@ -27,11 +27,11 @@
         {
           "name": "codesubmit-1.0.0.jar",
           "url": "codesubmit-1.0.0.jar",
-          "size": 16911,
-          "sha512": "fd6e5dd49d589404ebee8b269dfba4c3daaae100cebc71d78e542eadcb5c259061fa649f2a47450671fa4bd94b56205bb357777dc44638f8c2bbec62f5c4c5f7",
-          "sha256": "1f13046f63ffd278fe86d77290b11666b9536fa344dd9ecefa68a775b54dff52",
-          "sha1": "4e6ffbe765976021c660b291a1113b372aceb3c4",
-          "md5": "737a310f5ec1d025b7a3a741186e3f83"
+          "size": 19806,
+          "sha512": "8ada340cb3dba89a45094ec4258d599742d29f3d139c4cdb34817d8384f086dd423612f60332e951d962748d08dc202bf2d702353bcc30f073031763a2a96240",
+          "sha256": "7057dbf517b2a54e2763c3cd0f8bb86b4a39979db093b950f4d9f97b952a8075",
+          "sha1": "153194deb7b6dc824b97c99f03ce8481b4172e23",
+          "md5": "6cabb1758c60ae24a8416725f29c69b2"
         }
       ]
     },
@@ -40,7 +40,7 @@
       "attributes": {
         "org.gradle.category": "library",
         "org.gradle.dependency.bundling": "external",
-        "org.gradle.jvm.version": 19,
+        "org.gradle.jvm.version": 17,
         "org.gradle.libraryelements": "jar",
         "org.gradle.usage": "java-runtime"
       },
@@ -55,6 +55,20 @@
         {
           "group": "org.apache.spark",
           "module": "spark-sql_2.12",
+          "version": {
+            "requires": "3.4.0"
+          }
+        },
+        {
+          "group": "org.apache.spark",
+          "module": "spark-connect_2.12",
+          "version": {
+            "requires": "3.4.0"
+          }
+        },
+        {
+          "group": "org.apache.spark",
+          "module": "spark-connect-client-jvm_2.12",
           "version": {
             "requires": "3.4.0"
           }
@@ -78,11 +92,11 @@
         {
           "name": "codesubmit-1.0.0.jar",
           "url": "codesubmit-1.0.0.jar",
-          "size": 16911,
-          "sha512": "fd6e5dd49d589404ebee8b269dfba4c3daaae100cebc71d78e542eadcb5c259061fa649f2a47450671fa4bd94b56205bb357777dc44638f8c2bbec62f5c4c5f7",
-          "sha256": "1f13046f63ffd278fe86d77290b11666b9536fa344dd9ecefa68a775b54dff52",
-          "sha1": "4e6ffbe765976021c660b291a1113b372aceb3c4",
-          "md5": "737a310f5ec1d025b7a3a741186e3f83"
+          "size": 19806,
+          "sha512": "8ada340cb3dba89a45094ec4258d599742d29f3d139c4cdb34817d8384f086dd423612f60332e951d962748d08dc202bf2d702353bcc30f073031763a2a96240",
+          "sha256": "7057dbf517b2a54e2763c3cd0f8bb86b4a39979db093b950f4d9f97b952a8075",
+          "sha1": "153194deb7b6dc824b97c99f03ce8481b4172e23",
+          "md5": "6cabb1758c60ae24a8416725f29c69b2"
         }
       ]
     }

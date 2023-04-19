@@ -24,6 +24,18 @@
       <scope>runtime</scope>
     </dependency>
     <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-connect_2.12</artifactId>
+      <version>3.4.0</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-connect-client-jvm_2.12</artifactId>
+      <version>3.4.0</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
       <groupId>io.undertow</groupId>
       <artifactId>undertow-core</artifactId>
       <version>2.3.5.Final</version>
