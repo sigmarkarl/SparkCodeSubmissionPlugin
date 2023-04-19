@@ -249,7 +249,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     public Map<String,String> init(SparkContext sc, PluginContext myContext) {
         logger.info("Starting code submission server");
         try {
-            alterPysparkInitializeContext();
+            //alterPysparkInitializeContext();
             //SparkConnectService.start();
 
             var path = System.getenv("_PYSPARK_DRIVER_CONN_INFO_PATH");
