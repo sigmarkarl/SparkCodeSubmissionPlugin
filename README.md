@@ -1,4 +1,4 @@
-# SparkCodeSubmissionPlugin
+# Bigdata Command Service / SparkCodeSubmissionPlugin
 Submit code to a running spark session
 
 ## Limitations
