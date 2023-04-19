@@ -226,7 +226,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         }
     }
 
-    private void alterPysparkInitializeContext() throws IOException {
+    private void alterPysparkInitializeContext() {
         var sparkHome = System.getenv("SPARK_HOME");
         if (sparkHome != null) {
             var pysparkPath = Path.of(sparkHome, "python", "pyspark", "context.py");
@@ -235,10 +235,14 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         var pysparkPython = System.getenv("PYSPARK_PYTHON");
         var cmd = pysparkPython != null ? pysparkPython : "python3";
         var processBuilder = new ProcessBuilder(cmd, "-c", "import pyspark, os; print(os.path.dirname(pyspark.__file__))");
-        var process = processBuilder.start();
-        var path = new String(process.getInputStream().readAllBytes());
-        var pysparkPath = Path.of(path.trim(), "context.py");
-        fixContext(pysparkPath);
+        try {
+            var process = processBuilder.start();
+            var path = new String(process.getInputStream().readAllBytes());
+            var pysparkPath = Path.of(path.trim(), "context.py");
+            fixContext(pysparkPath);
+        } catch (IOException e) {
+            logger.error("Failed to alter pyspark initialize context", e);
+        }
     }
 
     @Override
