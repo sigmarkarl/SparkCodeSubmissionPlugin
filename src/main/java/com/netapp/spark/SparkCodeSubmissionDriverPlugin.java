@@ -11,6 +11,7 @@ import org.apache.spark.api.r.RAuthHelper;
 import org.apache.spark.api.r.RBackend;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.SaveMode;
+import org.apache.spark.sql.connect.service.SparkConnectService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Tuple2;
@@ -70,7 +71,10 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         new Thread(() -> rBackend.run()).start();
     }
 
-    private Process runPythonProcess(ProcessBuilder pb, Map<String,String> environment) throws IOException {
+    private Process runProcess(List<String> arguments, Map<String,String> environment, String processName) throws IOException {
+        var args = new ArrayList<>(Collections.singleton(processName));
+        args.addAll(arguments);
+        var pb  = new ProcessBuilder(args);
         pb.redirectError(ProcessBuilder.Redirect.INHERIT);
         pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
 
@@ -84,65 +88,71 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         env.put("PYSPARK_GATEWAY_SECRET", secret);
         env.put("PYSPARK_PIN_THREAD", "true");
 
-        return pb.start();
-    }
-
-    private void runRscript(String query, List<String> arguments, Map<String,String> environment) throws IOException, InterruptedException {
-        var args = new ArrayList<>(Collections.singleton("Rscript"));
-        args.addAll(arguments);
-        var pb  = new ProcessBuilder(args);
-        pb.redirectError(ProcessBuilder.Redirect.INHERIT);
-        pb.redirectOutput(ProcessBuilder.Redirect.INHERIT);
-        var env = pb.environment();
-        env.putAll(environment);
-
         env.put("EXISTING_SPARKR_BACKEND_PORT", Integer.toString(rbackendPort));
         env.put("SPARKR_BACKEND_AUTH_SECRET", rbackendSecret);
 
-        var RProcess = pb.start();
-        RProcess.getOutputStream().write(query.getBytes());
-        int exitCode = RProcess.waitFor();
-        if (exitCode != 0) {
-            throw new RuntimeException("R process exited with code " + exitCode);
-        }
+        var process = pb.start();
+        virtualThreads.submit(() -> {
+            try {
+                int exitCode = process.waitFor();
+                if (exitCode != 0) {
+                    logger.error(processName+" process exited with code " + exitCode);
+                }
+            } catch (InterruptedException e) {
+                logger.error(processName+" Execution failed", e);
+            }
+        });
+        return process;
     }
 
     private void runPython(String pythonCode, List<String> pythonArgs, Map<String,String> pythonEnv) throws IOException {
         var pysparkPython = System.getenv("PYSPARK_PYTHON");
         var cmd = pysparkPython != null ? pysparkPython : "python3";
-        var args = new ArrayList<>(Collections.singleton(cmd));
         var file = Files.createTempFile("python", ".py");
         Files.writeString(file, pythonCode);
-        args.add(file.toString());
+        var args = new ArrayList<>(Collections.singleton(file.toString()));
         args.addAll(pythonArgs);
-        var pb  = new ProcessBuilder(args);
-        var pythonProcess = runPythonProcess(pb, pythonEnv);
-        if (pythonCode.length() > 0) {
-            var processOutput = pythonProcess.getOutputStream();
-            processOutput.write(pythonCode.getBytes());
-            processOutput.close();
-        }
-        virtualThreads.submit(() -> {
-            try {
-                int exitCode = pythonProcess.waitFor();
-                if (exitCode != 0) {
-                    logger.error("Python process exited with code " + exitCode);
-                }
-            } catch (InterruptedException e) {
-                logger.error("Python Execution failed", e);
-            }
-        });
+        runProcess(args, pythonEnv, cmd);
     }
 
-    public void submitCode(SQLContext sqlContext, CodeSubmission codeSubmission) throws IOException, ClassNotFoundException, NoSuchMethodException, URISyntaxException {
+    public String submitCode(SQLContext sqlContext, CodeSubmission codeSubmission) throws IOException, ClassNotFoundException, NoSuchMethodException, URISyntaxException, ExecutionException, InterruptedException {
+        var defaultResponse = codeSubmission.type() + " code submitted";
         switch (codeSubmission.type()) {
             case SQL -> {
                 var sqlCode = codeSubmission.code();
-                virtualThreads.submit(() -> sqlContext.sql(sqlCode)
-                        .write()
-                        .format(codeSubmission.resultFormat())
-                        .mode(SaveMode.Overwrite)
-                        .save(codeSubmission.resultsPath()));
+                if (codeSubmission.resultsPath().isEmpty()) {
+                    defaultResponse = virtualThreads.submit(() -> {
+                        var df = sqlContext.sql(sqlCode);
+                        switch (codeSubmission.resultFormat()) {
+                            case "json" -> {
+                                var json = df.toJSON().collectAsList();
+                                return new ObjectMapper().writeValueAsString(json);
+                            }
+                            case "csv" -> {
+                                var csv = df.toJavaRDD().map(row -> {
+                                    var sb = new StringBuilder();
+                                    sb.append(row.get(0));
+                                    for (int i = 1; i < row.length(); i++) {
+                                        sb.append(",");
+                                        sb.append(row.get(i));
+                                    }
+                                    return sb.toString();
+                                }).collect();
+                                return new ObjectMapper().writeValueAsString(csv);
+                            }
+                            default -> {
+                                var rows = df.collectAsList();
+                                return new ObjectMapper().writeValueAsString(rows);
+                            }
+                        }
+                    }).get();
+                } else {
+                    virtualThreads.submit(() -> sqlContext.sql(sqlCode)
+                            .write()
+                            .format(codeSubmission.resultFormat())
+                            .mode(SaveMode.Overwrite)
+                            .save(codeSubmission.resultsPath()));
+                }
             }
             case PYTHON -> runPython(codeSubmission.code(), codeSubmission.arguments(), codeSubmission.environment());
             case PYTHON_BASE64 -> {
@@ -152,8 +162,10 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             }
             case R -> virtualThreads.submit(() -> {
                 try {
-                    runRscript(codeSubmission.code(), codeSubmission.arguments(), codeSubmission.environment());
-                } catch (IOException | InterruptedException e) {
+                    var processName = "Rscript";
+                    var RProcess = runProcess(codeSubmission.arguments(), codeSubmission.environment(), processName);
+                    RProcess.getOutputStream().write(codeSubmission.code().getBytes());
+                } catch (IOException e) {
                     logger.error("R Execution failed: ", e);
                 }
             });
@@ -180,8 +192,22 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                     });
                 }
             }
+            case JUPYTER -> {
+                var processName = "jupyter";
+                /*args.add("console");
+                args.add("--kernel");
+                args.add("sparkmagic_kernels.pysparkkernel");
+                args.add("--existing");
+                args.add("kernel-" + pyport + ".json");*/
+                runProcess(codeSubmission.arguments(), codeSubmission.environment(), processName);
+            }
+            case CODE_SERVER -> {
+                var processName = "code-server";
+                runProcess(codeSubmission.arguments(), codeSubmission.environment(), processName);
+            }
             default -> logger.error("Unknown code type: " + codeSubmission.type());
         }
+        return defaultResponse;
     }
 
     private void fixContext(Path pysparkPath) {
@@ -220,6 +246,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         logger.info("Starting code submission server");
         try {
             alterPysparkInitializeContext();
+            SparkConnectService.start();
 
             var path = System.getenv("_PYSPARK_DRIVER_CONN_INFO_PATH");
             if (path != null && !path.isEmpty()) {
@@ -260,8 +287,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                         var codeSubmissionStr = new String(exchange.getInputStream().readAllBytes());
                         try {
                             var codeSubmission = mapper.readValue(codeSubmissionStr, CodeSubmission.class);
-                            submitCode(sqlContext, codeSubmission);
-                            exchange.getResponseSender().send(codeSubmission.type() + " code submitted");
+                            var response = submitCode(sqlContext, codeSubmission);
+                            exchange.getResponseSender().send(response);
                         } catch (JsonProcessingException e) {
                             logger.error("Failed to parse code submission", e);
                             exchange.getResponseSender().send("Failed to parse code submission");

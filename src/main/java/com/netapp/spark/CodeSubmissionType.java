@@ -6,5 +6,7 @@ public enum CodeSubmissionType {
     PYTHON_FILE,
     JAVA,
     R,
-    SQL
+    SQL,
+    JUPYTER,
+    CODE_SERVER
 }
