@@ -10,14 +10,39 @@ else use https://raw.githubusercontent.com/sigmarkarl/SparkCodeSubmissionPlugin/
 
 ## Usage
 
+#### As arguments to pyspark or spark-shell
+
+```
 pyspark --packages com.netapp.spark:codesubmit:1.0.0 --repositories https://raw.githubusercontent.com/sigmarkarl/SparkCodeSubmissionPlugin/main/repo --conf spark.plugins com.netapp.spark.SparkCodeSubmissionPlugin --conf spark.code.submission.port=9001
+```
 
-or as spark configuration
+#### As spark configuration
 
+```
 spark.jars.packages=com.netapp.spark:codesubmit:1.0.0
 spark.jars.repositories=https://raw.githubusercontent.com/sigmarkarl/SparkCodeSubmissionPlugin/main/repo
 spark.plugins=com.netapp.spark.SparkCodeSubmissionPlugin
 spark.code.submission.port=9001
+```
+
+##### As a server (on a sidecar)
+
+Use image public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission:1.0.0
+
+## Using with Spark Connect
+
+Include the Spark Connect plugin in your spark application
+
+```
+spark.jars.packages=org.apache.spark:spark-connect:3.4.0
+spark.plugins=org.apache.spark.sql.connect.SparkConnectPlugin
+```
+
+Use the SPARK_REMOTE environment variable to specify the Spark Connect server address in the Spark Code Submission server (or plugin)
+
+```
+SPARK_REMOTE=sc://spark-master:15002
+```
 
 ## Submit JSON format
 Create a POST requeest on the server port
