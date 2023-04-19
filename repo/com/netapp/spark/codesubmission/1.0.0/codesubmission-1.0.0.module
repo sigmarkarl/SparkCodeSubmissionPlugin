@@ -2,7 +2,7 @@
   "formatVersion": "1.1",
   "component": {
     "group": "com.netapp.spark",
-    "module": "codesubmit",
+    "module": "codesubmission",
     "version": "1.0.0",
     "attributes": {
       "org.gradle.status": "release"
@@ -25,13 +25,13 @@
       },
       "files": [
         {
-          "name": "codesubmit-1.0.0.jar",
-          "url": "codesubmit-1.0.0.jar",
-          "size": 19858,
-          "sha512": "106f35bcb3aa53b592123ae1fd3c47679e8331fb458ffeaa8c841e5f7b559ef8418d499df0c40ad10933053852a9c1f73307b7b473258d30de418b3c2f8b3c32",
-          "sha256": "70b86f0aa443b79f6863f237f16623e67d8b5a85b2b13dfb0de3c81603f22e7d",
-          "sha1": "007203937810588646cc50ed036226dc3f8fe364",
-          "md5": "d77b658785ee63700fb6fcdc2d5b7381"
+          "name": "codesubmission-1.0.0.jar",
+          "url": "codesubmission-1.0.0.jar",
+          "size": 17529,
+          "sha512": "d02d274075be2961dbf7574efeb342a4e4e19d717abed3ced49defc8314041069b2ffff1daf82668b9c9a5be014841e23c528c3567b86a0dd669007a4c039c3c",
+          "sha256": "a69910e45d20cadc0287f4731e6be3c657b645d63ac67055a62c1fa6b5e0cc44",
+          "sha1": "7d0a73b7b3d4eac989a828b09e96e78c5614d7ec",
+          "md5": "3b1fd9977f69cefcc9a1b5a757fcebe8"
         }
       ]
     },
@@ -54,13 +54,6 @@
         },
         {
           "group": "org.apache.spark",
-          "module": "spark-sql_2.12",
-          "version": {
-            "requires": "3.4.0"
-          }
-        },
-        {
-          "group": "org.apache.spark",
           "module": "spark-connect_2.12",
           "version": {
             "requires": "3.4.0"
@@ -68,7 +61,7 @@
         },
         {
           "group": "org.apache.spark",
-          "module": "spark-connect-client-jvm_2.12",
+          "module": "spark-sql_2.12",
           "version": {
             "requires": "3.4.0"
           }
@@ -90,13 +83,13 @@
       ],
       "files": [
         {
-          "name": "codesubmit-1.0.0.jar",
-          "url": "codesubmit-1.0.0.jar",
-          "size": 19858,
-          "sha512": "106f35bcb3aa53b592123ae1fd3c47679e8331fb458ffeaa8c841e5f7b559ef8418d499df0c40ad10933053852a9c1f73307b7b473258d30de418b3c2f8b3c32",
-          "sha256": "70b86f0aa443b79f6863f237f16623e67d8b5a85b2b13dfb0de3c81603f22e7d",
-          "sha1": "007203937810588646cc50ed036226dc3f8fe364",
-          "md5": "d77b658785ee63700fb6fcdc2d5b7381"
+          "name": "codesubmission-1.0.0.jar",
+          "url": "codesubmission-1.0.0.jar",
+          "size": 17529,
+          "sha512": "d02d274075be2961dbf7574efeb342a4e4e19d717abed3ced49defc8314041069b2ffff1daf82668b9c9a5be014841e23c528c3567b86a0dd669007a4c039c3c",
+          "sha256": "a69910e45d20cadc0287f4731e6be3c657b645d63ac67055a62c1fa6b5e0cc44",
+          "sha1": "7d0a73b7b3d4eac989a828b09e96e78c5614d7ec",
+          "md5": "3b1fd9977f69cefcc9a1b5a757fcebe8"
         }
       ]
     }

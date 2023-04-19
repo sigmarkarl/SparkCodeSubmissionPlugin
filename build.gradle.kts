@@ -113,7 +113,7 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             groupId = "com.netapp.spark"
-            artifactId = "codesubmit"
+            artifactId = "codesubmission"
             version = "1.0.0"
 
             from(components["java"])

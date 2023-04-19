@@ -8,18 +8,12 @@
   <!-- do_not_remove: published-with-gradle-metadata -->
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.netapp.spark</groupId>
-  <artifactId>codesubmit</artifactId>
+  <artifactId>codesubmission</artifactId>
   <version>1.0.0</version>
   <dependencies>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_2.12</artifactId>
-      <version>3.4.0</version>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql_2.12</artifactId>
       <version>3.4.0</version>
       <scope>runtime</scope>
     </dependency>
@@ -31,7 +25,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-connect-client-jvm_2.12</artifactId>
+      <artifactId>spark-sql_2.12</artifactId>
       <version>3.4.0</version>
       <scope>runtime</scope>
     </dependency>
