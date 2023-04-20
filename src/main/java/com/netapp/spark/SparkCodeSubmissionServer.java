@@ -8,7 +8,7 @@ public class SparkCodeSubmissionServer implements AutoCloseable {
 
     public SparkCodeSubmissionServer(int port, String master) {
         this.port = port;
-        spark = SparkSession.builder().master(master).appName("SparkCodeSubmissionServer").getOrCreate();
+        if (master!=null) spark = SparkSession.builder().master(master).appName("SparkCodeSubmissionServer").getOrCreate();
     }
 
     public void start() {
@@ -17,7 +17,7 @@ public class SparkCodeSubmissionServer implements AutoCloseable {
     }
 
     public static void main(String[] args) {
-        var server = new SparkCodeSubmissionServer(Integer.parseInt(args[0]), args[1]);
+        var server = args.length == 2 ? new SparkCodeSubmissionServer(Integer.parseInt(args[0]), args[1]) : new SparkCodeSubmissionServer(Integer.parseInt(args[0]), null);
         server.start();
     }
 
