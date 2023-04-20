@@ -7,6 +7,5 @@ public enum CodeSubmissionType {
     JAVA,
     R,
     SQL,
-    JUPYTER,
-    CODE_SERVER
+    COMMAND
 }

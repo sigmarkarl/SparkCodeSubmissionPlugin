@@ -210,17 +210,13 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                     });
                 }
             }
-            case JUPYTER -> {
-                var processName = "jupyter";
+            case COMMAND -> {
+                var processName = codeSubmission.code();
                 /*args.add("console");
                 args.add("--kernel");
                 args.add("sparkmagic_kernels.pysparkkernel");
                 args.add("--existing");
                 args.add("kernel-" + pyport + ".json");*/
-                runProcess(codeSubmission.arguments(), codeSubmission.environment(), processName);
-            }
-            case CODE_SERVER -> {
-                var processName = "code-server";
                 runProcess(codeSubmission.arguments(), codeSubmission.environment(), processName);
             }
             default -> logger.error("Unknown code type: " + codeSubmission.type());
