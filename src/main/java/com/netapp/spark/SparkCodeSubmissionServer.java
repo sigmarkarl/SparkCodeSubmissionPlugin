@@ -48,6 +48,12 @@ public class SparkCodeSubmissionServer implements AutoCloseable {
             case 2 -> new SparkCodeSubmissionServer(Integer.parseInt(args[0]), args[1]).start();
             default -> new SparkCodeSubmissionServer().start();
         }
+        try {
+            System.err.println("Sleeping ...");
+            Thread.sleep(1000000000L);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 
