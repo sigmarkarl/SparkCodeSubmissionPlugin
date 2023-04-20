@@ -4,17 +4,25 @@ import org.apache.spark.sql.SparkSession;
 
 public class SparkCodeSubmissionServer implements AutoCloseable {
     SparkSession spark;
-    int port;
+    int port = -1;
 
-    public SparkCodeSubmissionServer(int port, String master) {
-        this.port = port;
+    public SparkCodeSubmissionServer() {
+        spark = SparkSession.builder().getOrCreate();
+    }
+
+    public SparkCodeSubmissionServer(String master) {
         if (master!=null) {
-            if (master.equalsIgnoreCase("none")) {
-                spark = SparkSession.builder().getOrCreate();
-            } else {
+            if (!master.equalsIgnoreCase("none")) {
                 spark = SparkSession.builder().master(master).appName("SparkCodeSubmissionServer").getOrCreate();
             }
+        } else {
+            spark = SparkSession.builder().getOrCreate();
         }
+    }
+
+    public SparkCodeSubmissionServer(int port, String master) {
+        this(master);
+        this.port = port;
     }
 
     public void start() {
@@ -23,9 +31,12 @@ public class SparkCodeSubmissionServer implements AutoCloseable {
     }
 
     public static void main(String[] args) {
-        System.err.println("Number of arguments " + args.length);
-        var server = args.length == 2 ? new SparkCodeSubmissionServer(Integer.parseInt(args[0]), args[1]) : new SparkCodeSubmissionServer(Integer.parseInt(args[0]), null);
-        server.start();
+        switch (args.length) {
+            case 0 -> new SparkCodeSubmissionServer().start();
+            case 1 -> new SparkCodeSubmissionServer(args[0]).start();
+            case 2 -> new SparkCodeSubmissionServer(Integer.parseInt(args[0]), args[1]).start();
+            default -> new SparkCodeSubmissionServer().start();
+        }
     }
 
 
