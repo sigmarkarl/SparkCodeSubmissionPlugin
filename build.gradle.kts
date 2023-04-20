@@ -35,10 +35,10 @@ jib {
                 architecture = "amd64"
                 os = "linux"
             }
-            platform {
+            /*platform {
                 architecture = "arm64"
                 os = "linux"
-            }
+            }*/
         }
         if (project.hasProperty("REGISTRY_USER")) {
             auth {
