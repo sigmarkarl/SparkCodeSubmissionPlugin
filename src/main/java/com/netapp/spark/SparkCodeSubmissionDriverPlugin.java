@@ -159,7 +159,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         switch (codeSubmission.type()) {
             case SQL -> {
                 var sqlCode = codeSubmission.code();
-                if (codeSubmission.resultsPath().isEmpty()) {
+                var resultsPath = codeSubmission.resultsPath();
+                if (resultsPath == null || resultsPath.isEmpty()) {
                     if (sqlContext==null) {
                         var code = """
                             import sys
