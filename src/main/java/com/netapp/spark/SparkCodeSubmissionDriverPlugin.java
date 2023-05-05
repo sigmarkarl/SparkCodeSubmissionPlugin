@@ -228,18 +228,27 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                 }
             });
             case JAVA -> {
-                var javaCode = codeSubmission.code();
-                var classPath = Path.of(codeSubmission.className() + ".java");
                 var classLoader = this.getClass().getClassLoader();
-                var url = classLoader.getResource("test.txt");
-                assert url != null;
-                var path = Path.of(url.toURI()).getParent().resolve(classPath);
-                Files.writeString(path, javaCode);
-                int exitcode = compiler.run(System.in, System.out, System.err, path.toString());
-                if (exitcode != 0) {
-                    logger.error("Java Compilation failed: " + exitcode);
-                } else {
-                    var submissionClass = classLoader.loadClass(codeSubmission.className());
+                Class<?> submissionClass = null;
+                try {
+                    submissionClass = classLoader.loadClass(codeSubmission.className());
+                } catch (ClassNotFoundException e) {
+                    var javaCode = codeSubmission.code();
+                    var url = classLoader.getResource("test.txt");
+                    assert url != null;
+                    var classPath = Path.of(codeSubmission.className() + ".java");
+                    var path = Path.of(url.toURI()).getParent().resolve(classPath);
+                    Files.writeString(path, javaCode);
+                    int exitcode = compiler.run(System.in, System.out, System.err, path.toString());
+                    if (exitcode != 0) {
+                        defaultResponse = "Java Compilation failed: " + exitcode;
+                        logger.error(defaultResponse);
+                    } else {
+                        submissionClass = classLoader.loadClass(codeSubmission.className());
+                    }
+                }
+
+                if (submissionClass!=null) {
                     var mainMethod = submissionClass.getMethod("main", String[].class);
                     virtualThreads.submit(() -> {
                         try {
