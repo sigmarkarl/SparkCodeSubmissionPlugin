@@ -38,8 +38,8 @@ public class SparkCodeSubmissionClient {
                     spark.udf.register("delayedSqr", delayedSqr, IntegerType())
                     spark.sql("select delayedSqr(random())").write.format("csv").mode("overwrite").save("test.csv")
                     """;
-            var pythonBase64 = java.util.Base64.getEncoder().encodeToString(pythonCode.getBytes());
-            client.run("http://localhost:9001", String.format("""
+            //var pythonBase64 = java.util.Base64.getEncoder().encodeToString(pythonCode.getBytes());
+            /*client.run("http://localhost:9001", String.format("""
                     {
                       "type": "PYTHON_B64",
                       "code": "%s",
@@ -48,7 +48,17 @@ public class SparkCodeSubmissionClient {
                       "resultFormat": "csv",
                       "resultsPath": "test.csv"
                     }
-                    """, pythonBase64));
+                    """, pythonBase64));*/
+            client.run("http://localhost:9001", """
+                    {
+                      "type": "SQL",
+                      "code": "select random()",
+                      "className": "",
+                      "config": "",
+                      "resultFormat": "json",
+                      "resultsPath": ""
+                    }
+                    """);
         }
     }
 }

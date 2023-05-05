@@ -17,6 +17,7 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 public class SparkCodeSubmissionDriverPluginTest {
     static SparkSession spark;
@@ -54,14 +55,14 @@ public class SparkCodeSubmissionDriverPluginTest {
         }
     }
 
-    void testSparkSubmissionDriverPlugin(CodeSubmission codeSubmission) throws IOException, ClassNotFoundException, NoSuchMethodException, InterruptedException, URISyntaxException {
-        sparkCodeSubmissionDriverPlugin.submitCode(spark.sqlContext(), codeSubmission);
+    void testSparkSubmissionDriverPlugin(CodeSubmission codeSubmission) throws IOException, ClassNotFoundException, NoSuchMethodException, InterruptedException, URISyntaxException, ExecutionException {
+        sparkCodeSubmissionDriverPlugin.submitCode(spark, codeSubmission);
         sparkCodeSubmissionDriverPlugin.waitForVirtualThreads();
         checkResultsFile();
     }
 
     @Test
-    public void testSparkSQLSubmissionDriverPlugin() throws IOException, ClassNotFoundException, NoSuchMethodException, InterruptedException, URISyntaxException {
+    public void testSparkSQLSubmissionDriverPlugin() throws IOException, ClassNotFoundException, NoSuchMethodException, InterruptedException, URISyntaxException, ExecutionException {
         var codeSubmission = new CodeSubmission(CodeSubmissionType.SQL, "select random()", "", List.of(), Map.of(), "", "csv", "test.csv");
         testSparkSubmissionDriverPlugin(codeSubmission);
     }
@@ -86,7 +87,7 @@ public class SparkCodeSubmissionDriverPluginTest {
         """;
 
     @Test
-    public void testSparkJavaSubmissionDriverPlugin() throws IOException, ClassNotFoundException, NoSuchMethodException, InterruptedException, URISyntaxException {
+    public void testSparkJavaSubmissionDriverPlugin() throws IOException, ClassNotFoundException, NoSuchMethodException, InterruptedException, URISyntaxException, ExecutionException {
         var codeSubmission = new CodeSubmission(CodeSubmissionType.JAVA, JAVA_CODE, "Test", List.of("test.csv"), Map.of(),"", "", "");
         testSparkSubmissionDriverPlugin(codeSubmission);
     }
@@ -99,7 +100,7 @@ public class SparkCodeSubmissionDriverPluginTest {
         """;
 
     @Test
-    public void testSparkPythonSubmissionDriverPlugin() throws IOException, ClassNotFoundException, NoSuchMethodException, InterruptedException, URISyntaxException {
+    public void testSparkPythonSubmissionDriverPlugin() throws IOException, ClassNotFoundException, NoSuchMethodException, InterruptedException, URISyntaxException, ExecutionException {
         var codeSubmission = new CodeSubmission(CodeSubmissionType.PYTHON, PYTHON_CODE, "", List.of("test.csv"), Map.of(),"", "", "");
         testSparkSubmissionDriverPlugin(codeSubmission);
     }

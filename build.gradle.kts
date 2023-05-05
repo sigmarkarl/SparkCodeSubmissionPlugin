@@ -28,8 +28,8 @@ repositories {
 
 jib {
     from {
-        image = "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission"
-        version = "baseimage-1.0.0"
+        image = "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission:baseimage-1.0.0"
+        //version = "baseimage-1.0.0"
         platforms {
             platform {
                 architecture = "amd64"
@@ -48,8 +48,8 @@ jib {
         }
     }
     to {
-        image = project.findProperty("APPLICATION_REPOSITORY")?.toString() ?: "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission"
-        version = "1.0.0"
+        image = project.findProperty("APPLICATION_REPOSITORY")?.toString() ?: "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission:1.0.0"
+        //version = "1.0.0"
         //tags = [project.findProperty("APPLICATION_TAG")?.toString() ?: "1.0"]
         if (project.hasProperty("REGISTRY_USER")) {
             val reg_user = project.findProperty("REGISTRY_USER")?.toString()
@@ -98,8 +98,8 @@ tasks.withType<JavaCompile>().configureEach { options.compilerArgs.add("--enable
 
 dependencies {
     implementation("org.apache.spark:spark-core_2.12:3.4.0")
-    implementation("org.apache.spark:spark-sql_2.12:3.4.0")
     implementation("org.apache.spark:spark-connect_2.12:3.4.0")
+    implementation("org.apache.spark:spark-sql_2.12:3.4.0")
     implementation("io.undertow:undertow-core:2.3.5.Final")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.14.2")
 
@@ -111,7 +111,7 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             groupId = "com.netapp.spark"
-            artifactId = "codesubmit"
+            artifactId = "codesubmission"
             version = "1.0.0"
 
             from(components["java"])
