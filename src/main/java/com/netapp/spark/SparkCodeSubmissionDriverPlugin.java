@@ -329,17 +329,15 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         codeSubmissionServer.start();
     }
 
-    @Override
-    public Map<String,String> init(SparkContext sc, PluginContext myContext) {
+    void init(SparkSession session) {
         logger.info("Starting code submission server");
         if (port == -1) {
-            port = Integer.parseInt(sc.getConf().get("spark.code.submission.port", "9001"));
+            port = Integer.parseInt(session.sparkContext().getConf().get("spark.code.submission.port", "9001"));
         }
         try {
             SparkConnectService.start();
-            initPy4JServer(sc);
+            initPy4JServer(session.sparkContext());
             initRBackend();
-            var session = new SparkSession(sc);
             startCodeSubmissionServer(session);
         } catch (RuntimeException e) {
             logger.error("Failed to start code submission server at port: " + port, e);
@@ -348,6 +346,12 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             logger.error("Unable to alter pyspark context code", e);
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public Map<String,String> init(SparkContext sc, PluginContext myContext) {
+        var session = new SparkSession(sc);
+        init(session);
 
         return Map.of();
     }
