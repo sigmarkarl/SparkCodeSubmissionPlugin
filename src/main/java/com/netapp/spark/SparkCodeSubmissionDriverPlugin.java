@@ -1,17 +1,20 @@
 package com.netapp.spark;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.undertow.Undertow;
-import io.undertow.server.handlers.BlockingHandler;
+import io.undertow.websockets.core.*;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.plugin.PluginContext;
 import org.apache.spark.api.python.Py4JServer;
 import org.apache.spark.api.r.RAuthHelper;
 import org.apache.spark.api.r.RBackend;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.catalyst.encoders.RowEncoder;
 import org.apache.spark.sql.connect.service.SparkConnectService;
+import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Tuple2;
@@ -23,17 +26,25 @@ import javax.tools.ToolProvider;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.net.URISyntaxException;
+import java.net.*;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
+
+import static io.undertow.Handlers.path;
+import static io.undertow.Handlers.websocket;
 
 public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plugin.DriverPlugin {
     static Logger logger = LoggerFactory.getLogger(SparkCodeSubmissionDriverPlugin.class);
     Undertow codeSubmissionServer;
     int port;
     ExecutorService virtualThreads;
+    ExecutorService transcodeThread;
     Py4JServer py4jServer;
     int pyport;
     String secret;
@@ -49,13 +60,14 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     public SparkCodeSubmissionDriverPlugin(int port) {
         this.port = port;
         virtualThreads = Executors.newVirtualThreadPerTaskExecutor();
+        transcodeThread = Executors.newSingleThreadExecutor();
     }
 
     public int getPort() {
         return port;
     }
 
-    private void initPy4JServer(SparkContext sc) throws IOException {
+    private Row initPy4JServer(SparkContext sc) throws IOException {
         alterPysparkInitializeContext();
 
         var path = System.getenv("_PYSPARK_DRIVER_CONN_INFO_PATH");
@@ -87,15 +99,17 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             secret = py4jServer.secret();
             py4jServer.start();
         }
+        return RowFactory.create(pyport, secret);
     }
 
-    private void initRBackend() {
+    private Row initRBackend() {
         rBackend = new RBackend();
         Tuple2<Object, RAuthHelper> tuple = rBackend.init();
         rbackendPort = (Integer) tuple._1;
         rbackendSecret = tuple._2.secret();
 
         new Thread(() -> rBackend.run()).start();
+        return RowFactory.create(rbackendPort, rbackendSecret);
     }
 
     private Process runProcess(List<String> arguments, Map<String,String> environment, String processName) throws IOException {
@@ -308,22 +322,85 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         }
     }
 
-    void startCodeSubmissionServer(SparkSession session) {
+    void startCodeSubmissionServer(SparkSession session) throws IOException {
         var mapper = new ObjectMapper();
+
         codeSubmissionServer = Undertow.builder()
-                .addHttpListener(port, "0.0.0.0")
-                .setHandler(new BlockingHandler(exchange -> {
-                    var codeSubmissionStr = new String(exchange.getInputStream().readAllBytes());
-                    try {
-                        var codeSubmission = mapper.readValue(codeSubmissionStr, CodeSubmission.class);
-                        var response = submitCode(session, codeSubmission);
-                        exchange.getResponseSender().send(response);
-                    } catch (JsonProcessingException e) {
-                        logger.error("Failed to parse code submission", e);
-                        exchange.getResponseSender().send("Failed to parse code submission");
-                    }
-                }))
-                .build();
+            .addHttpListener(port, "0.0.0.0")
+            .setHandler(path().addPrefixPath("/", websocket((exchange, channel) -> {
+                try {
+                    var clientSocket = new Socket();
+                    clientSocket.connect(new InetSocketAddress("0.0.0.0", 15002));
+                    var cbb = new byte[1024 * 1024];
+                    var clientInput = clientSocket.getInputStream();
+                    var clientOutput = clientSocket.getOutputStream();
+                    var socketChannel = Channels.newChannel(clientOutput);
+
+                    transcodeThread.submit(() -> {
+                        try {
+                            while (true) {
+                                var available = Math.max(clientInput.available(), 1);
+                                var read = clientInput.read(cbb, 0, Math.min(available, cbb.length));
+                                if (read == -1) {
+                                    break;
+                                } else {
+                                    WebSockets.sendBinaryBlocking(ByteBuffer.wrap(cbb, 0, read), channel);
+                                }
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                    channel.getReceiveSetter().set(new AbstractReceiveListener() {
+                        @Override
+                        protected void onFullBinaryMessage(WebSocketChannel channel, BufferedBinaryMessage message) {
+                            try {
+                                var byteBuffers = message.getData().getResource();
+                                for (var bb : byteBuffers) {
+                                    socketChannel.write(bb);
+                                }
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+
+                        @Override
+                        protected void onFullTextMessage(WebSocketChannel channel, BufferedTextMessage message) {
+                            var codeSubmissionStr = message.getData();
+                            try {
+                                var codeSubmission = mapper.readValue(codeSubmissionStr, CodeSubmission.class);
+                                var response = submitCode(session, codeSubmission);
+                                WebSockets.sendTextBlocking(response, channel);
+                            } catch (IOException | ClassNotFoundException | NoSuchMethodException | URISyntaxException |
+                                     ExecutionException | InterruptedException e) {
+                                logger.error("Failed to parse code submission", e);
+                                WebSockets.sendText("Failed to parse code submission", channel, null);
+                            }
+                        }
+                    });
+                    channel.resumeReceives();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            })).addPrefixPath("/status", exchange -> {
+                var status = new HashMap<String, Object>();
+                status.put("port", port);
+                status.put("virtualThreads", virtualThreads);
+                status.put("sparkSession", session);
+                exchange.getResponseSender().send(mapper.writeValueAsString(status));
+            }))
+            /*.setHandler(new BlockingHandler(exchange -> {
+                var codeSubmissionStr = new String(exchange.getInputStream().readAllBytes());
+                try {
+                    var codeSubmission = mapper.readValue(codeSubmissionStr, CodeSubmission.class);
+                    var response = submitCode(session, codeSubmission);
+                    exchange.getResponseSender().send(response);
+                } catch (JsonProcessingException e) {
+                    logger.error("Failed to parse code submission", e);
+                    exchange.getResponseSender().send("Failed to parse code submission");
+                }
+            }))*/
+            .build();
 
         System.err.println("Using port "+ port);
         codeSubmissionServer.start();
@@ -336,8 +413,16 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         }
         try {
             SparkConnectService.start();
-            initPy4JServer(session.sparkContext());
-            initRBackend();
+
+            var connectInfo = new ArrayList<Row>();
+            connectInfo.add(initPy4JServer(session.sparkContext()));
+            connectInfo.add(initRBackend());
+
+            var df = session.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("port int, secret string")));
+            df.createOrReplaceGlobalTempView("spark_connect_info");
+            var connInfoPath = System.getenv("PYSPARK_DRIVER_CONN_INFO_PATH");
+            if (connInfoPath != null && !connInfoPath.isEmpty()) df.write().mode(SaveMode.Overwrite).save(connInfoPath);
+
             startCodeSubmissionServer(session);
         } catch (RuntimeException e) {
             logger.error("Failed to start code submission server at port: " + port, e);
@@ -353,7 +438,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         var session = new SparkSession(sc);
         init(session);
 
-        return Map.of();
+        return Collections.emptyMap();
     }
 
     @Override
@@ -371,6 +456,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             logger.debug("Interrupted while waiting for virtual threads to finish", e);
         }
         virtualThreads.shutdown();
+        transcodeThread.shutdown();
     }
 
     public boolean waitForVirtualThreads() throws InterruptedException {

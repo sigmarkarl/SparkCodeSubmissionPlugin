@@ -1,0 +1,49 @@
+package com.netapp.spark;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.http.WebSocket;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
+import java.util.concurrent.CompletionStage;
+
+public class SparkCodeSubmissionWebSocketListener implements WebSocket.Listener {
+    OutputStream output;
+    WritableByteChannel channel;
+
+    public SparkCodeSubmissionWebSocketListener(OutputStream output) {
+        this.output = output;
+        this.channel = Channels.newChannel(output);
+    }
+
+    @Override
+    public void onOpen(WebSocket webSocket) {
+        WebSocket.Listener.super.onOpen(webSocket);
+    }
+
+    @Override
+    public void onError(WebSocket webSocket, Throwable error) {
+        WebSocket.Listener.super.onError(webSocket, error);
+    }
+
+    @Override
+    public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+        return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
+    }
+
+    @Override
+    public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+        return WebSocket.Listener.super.onText(webSocket, data, last);
+    }
+
+    @Override
+    public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
+        try {
+            channel.write(data);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return WebSocket.Listener.super.onBinary(webSocket, data, last);
+    }
+}
