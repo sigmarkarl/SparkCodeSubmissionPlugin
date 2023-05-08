@@ -38,7 +38,7 @@ public class SparkCodeSubmissionClient {
                     spark.udf.register("delayedSqr", delayedSqr, IntegerType())
                     spark.sql("select delayedSqr(random())").write.format("csv").mode("overwrite").save("test.csv")
                     """;
-            var pythonBase64 = java.util.Base64.getEncoder().encodeToString(pythonCode.getBytes());
+            //var pythonBase64 = java.util.Base64.getEncoder().encodeToString(pythonCode.getBytes());
             /*client.run("http://localhost:9001", String.format("""
                     {
                       "type": "PYTHON_B64",

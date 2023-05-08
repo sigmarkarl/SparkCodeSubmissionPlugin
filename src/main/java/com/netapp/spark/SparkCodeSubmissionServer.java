@@ -32,7 +32,7 @@ public class SparkCodeSubmissionServer implements AutoCloseable {
 
     public void start() {
         var server = new SparkCodeSubmissionDriverPlugin(port);
-        server.startCodeSubmissionServer(spark);
+        server.init(spark);
     }
 
     public static void main(String[] args) {
