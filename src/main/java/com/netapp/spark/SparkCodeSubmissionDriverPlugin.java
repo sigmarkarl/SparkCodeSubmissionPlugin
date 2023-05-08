@@ -415,8 +415,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             SparkConnectService.start();
 
             var connectInfo = new ArrayList<Row>();
-            connectInfo.add(initPy4JServer(session.sparkContext()));
-            connectInfo.add(initRBackend());
+            //connectInfo.add(initPy4JServer(session.sparkContext()));
+            //connectInfo.add(initRBackend());
 
             var df = session.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("port int, secret string")));
             df.createOrReplaceGlobalTempView("spark_connect_info");
