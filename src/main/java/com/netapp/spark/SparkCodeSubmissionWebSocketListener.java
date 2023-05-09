@@ -13,22 +13,27 @@ public class SparkCodeSubmissionWebSocketListener implements WebSocket.Listener 
     WritableByteChannel channel;
 
     public SparkCodeSubmissionWebSocketListener(OutputStream output) {
+        super();
         this.output = output;
         this.channel = Channels.newChannel(output);
     }
 
     @Override
     public void onOpen(WebSocket webSocket) {
+        System.err.println("opening");
         WebSocket.Listener.super.onOpen(webSocket);
     }
 
     @Override
     public void onError(WebSocket webSocket, Throwable error) {
+        System.err.println("error");
+        error.printStackTrace();
         WebSocket.Listener.super.onError(webSocket, error);
     }
 
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+        System.err.println("closing");
         return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
     }
 

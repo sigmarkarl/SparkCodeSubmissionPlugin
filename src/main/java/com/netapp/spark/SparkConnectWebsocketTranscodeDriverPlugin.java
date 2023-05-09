@@ -9,10 +9,13 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.http.HttpClient;
+import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -44,12 +47,28 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
                 var socket = serverSocket.accept();
                 var output = socket.getOutputStream();
                 var input = socket.getInputStream();
+                var channel = Channels.newChannel(output);
 
                 var webSocketBuilder = client.newWebSocketBuilder();
                 for (var h : headers.entrySet()) {
                     webSocketBuilder = webSocketBuilder.header(h.getKey(), h.getValue());
                 }
-                var webSocket = webSocketBuilder.buildAsync(java.net.URI.create(urlstr), new SparkCodeSubmissionWebSocketListener(output)).join();
+                var webSocket = webSocketBuilder.buildAsync(java.net.URI.create(urlstr), new WebSocket.Listener() {
+                    @Override
+                    public void onOpen(WebSocket webSocket) {
+                        WebSocket.Listener.super.onOpen(webSocket);
+                    }
+
+                    @Override
+                    public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
+                        try {
+                            channel.write(data);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                        return WebSocket.Listener.super.onBinary(webSocket, data, last);
+                    }
+                }).join();
 
                 while (true) {
                     var available = Math.max(input.available(),1);
@@ -71,10 +90,10 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
 
     Map<String,String> initHeaders(String header) {
         var headers = new HashMap<String,String>();
-        var hsplit = header.split(";");
+        var hsplit = header.split(",");
         for (var h : hsplit) {
-            var kv = h.split("=");
-            if (kv.length==2) headers.put(kv[0], kv[1]);
+            var i = h.indexOf('=');
+            if (i != -1) headers.put(h.substring(0,i), h.substring(i+1));
         }
         return headers;
     }

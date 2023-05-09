@@ -327,7 +327,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
 
         codeSubmissionServer = Undertow.builder()
             .addHttpListener(port, "0.0.0.0")
-            .setHandler(path().addPrefixPath("/", websocket((exchange, channel) -> {
+            //.setHandler(path().addPrefixPath("/", websocket((exchange, channel) -> {
+            .setHandler(websocket((exchange, channel) -> {
                 try {
                     var clientSocket = new Socket();
                     clientSocket.connect(new InetSocketAddress("0.0.0.0", 15002));
@@ -342,8 +343,10 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                                 var available = Math.max(clientInput.available(), 1);
                                 var read = clientInput.read(cbb, 0, Math.min(available, cbb.length));
                                 if (read == -1) {
+                                    System.err.println("Client closed connection");
                                     break;
                                 } else {
+                                    System.err.println("Sending " + read + " bytes)");
                                     WebSockets.sendBinaryBlocking(ByteBuffer.wrap(cbb, 0, read), channel);
                                 }
                             }
@@ -382,13 +385,13 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-            })).addPrefixPath("/status", exchange -> {
+            }))/*).addPrefixPath("/status", exchange -> {
                 var status = new HashMap<String, Object>();
                 status.put("port", port);
                 status.put("virtualThreads", virtualThreads);
                 status.put("sparkSession", session);
                 exchange.getResponseSender().send(mapper.writeValueAsString(status));
-            }))
+            }))*/
             /*.setHandler(new BlockingHandler(exchange -> {
                 var codeSubmissionStr = new String(exchange.getInputStream().readAllBytes());
                 try {
