@@ -15,7 +15,6 @@ import java.nio.channels.Channels;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -25,6 +24,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     int port = -1;
     String urlstr;
     Map<String,String> headers;
+    WebSocket   webSocket;
 
     public SparkConnectWebsocketTranscodeDriverPlugin(int port, String url, String header) {
         this();
@@ -43,44 +43,36 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
             try {
                 var client = HttpClient.newHttpClient();
                 var bb = new byte[1024*1024];
+                var wsListener = new SparkCodeSubmissionWebSocketListener();
                 var serverSocket = new ServerSocket(port);
-                var socket = serverSocket.accept();
-                var output = socket.getOutputStream();
-                var input = socket.getInputStream();
-                var channel = Channels.newChannel(output);
+                var running = true;
+                while (running) {
+                    var socket = serverSocket.accept();
+                    var output = socket.getOutputStream();
+                    var input = socket.getInputStream();
+                    var channel = Channels.newChannel(output);
+                    wsListener.setChannel(channel);
 
-                var webSocketBuilder = client.newWebSocketBuilder();
-                for (var h : headers.entrySet()) {
-                    webSocketBuilder = webSocketBuilder.header(h.getKey(), h.getValue());
-                }
-                var webSocket = webSocketBuilder.buildAsync(java.net.URI.create(urlstr), new WebSocket.Listener() {
-                    @Override
-                    public void onOpen(WebSocket webSocket) {
-                        WebSocket.Listener.super.onOpen(webSocket);
+                    var webSocketBuilder = client.newWebSocketBuilder();
+                    for (var h : headers.entrySet()) {
+                        webSocketBuilder = webSocketBuilder.header(h.getKey(), h.getValue());
                     }
+                    var webSocket = webSocketBuilder.buildAsync(java.net.URI.create(urlstr), wsListener).join();
 
-                    @Override
-                    public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
-                        try {
-                            channel.write(data);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
+                    while (true) {
+                        var available = Math.max(input.available(), 1);
+                        System.err.println("local available " + available);
+                        var read = input.read(bb, 0, Math.min(available, bb.length));
+                        System.err.println("local read " + read);
+                        if (read == -1) {
+                            break;
+                        } else {
+                            webSocket.sendBinary(ByteBuffer.wrap(bb, 0, read), true);
+                            System.err.println("local after send");
                         }
-                        return WebSocket.Listener.super.onBinary(webSocket, data, last);
                     }
-                }).join();
-
-                while (true) {
-                    var available = Math.max(input.available(),1);
-                    System.err.println("local available "+available);
-                    var read = input.read(bb, 0, Math.min(available, bb.length));
-                    System.err.println("local read "+read);
-                    if (read == -1) {
-                        break;
-                    } else {
-                        webSocket.sendBinary(ByteBuffer.wrap(bb, 0, read), true);
-                        System.err.println("local after send");
-                    }
+                    webSocket.sendText("loft", true);
+                    webSocket.sendClose(200, "Spark Connect closed");
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);

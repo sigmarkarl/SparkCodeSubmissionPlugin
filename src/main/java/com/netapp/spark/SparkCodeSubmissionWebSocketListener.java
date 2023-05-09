@@ -1,21 +1,20 @@
 package com.netapp.spark;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.CompletionStage;
 
 public class SparkCodeSubmissionWebSocketListener implements WebSocket.Listener {
-    OutputStream output;
     WritableByteChannel channel;
 
-    public SparkCodeSubmissionWebSocketListener(OutputStream output) {
+    public SparkCodeSubmissionWebSocketListener() {
         super();
-        this.output = output;
-        this.channel = Channels.newChannel(output);
+    }
+
+    public void setChannel(WritableByteChannel channel) {
+        this.channel = channel;
     }
 
     @Override
