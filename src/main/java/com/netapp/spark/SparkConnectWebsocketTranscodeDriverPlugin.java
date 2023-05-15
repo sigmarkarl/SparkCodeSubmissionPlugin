@@ -94,7 +94,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     public Map<String,String> init(SparkContext sc, PluginContext myContext) {
         var session = new SparkSession(sc);
         if (port == -1) {
-            port = Integer.parseInt(session.sparkContext().getConf().get("spark.code.submission.port", "9001"));
+            port = Integer.parseInt(session.sparkContext().getConf().get("spark.code.submission.port", "15002"));
         }
         if (urlstr == null) {
             urlstr = session.sparkContext().getConf().get("spark.code.submission.url", "ws://localhost:9000");
