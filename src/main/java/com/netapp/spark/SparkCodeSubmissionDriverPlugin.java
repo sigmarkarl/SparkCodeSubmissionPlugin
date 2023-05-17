@@ -323,7 +323,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     void startCodeSubmissionServer(SparkSession session) throws IOException {
         var mapper = new ObjectMapper();
         var grpcPort = session != null ? Integer.parseInt(session.conf().get("spark.connect.grpc.binding.port", "15002")) : 15002;
-
+        System.err.println("Starting grpc socket on port " + grpcPort);
         codeSubmissionServer = Undertow.builder()
             .addHttpListener(port, "0.0.0.0")
             //.setHandler(path().addPrefixPath("/", websocket((exchange, channel) -> {
