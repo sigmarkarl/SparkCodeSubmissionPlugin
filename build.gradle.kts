@@ -81,6 +81,7 @@ jib {
         //workingDirectory = "/opt/spark/work-dir/"
         //appRoot = "/opt/spark/"
         mainClass = "com.netapp.spark.SparkCodeSubmissionServer"
+        //mainClass = "com.netapp.spark.SparkConnectWebsocketTranscodeDriverPlugin"
         //environment = mapOf("SPARK_REMOTE" to "sc://localhost")
         //environment = mapOf("JAVA_TOOL_OPTIONS" to "-Djdk.lang.processReaperUseDefaultStackSize=true --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED")
         jvmFlags = theJvmArgs
@@ -127,7 +128,7 @@ publishing {
 }
 
 application {
-    mainClass.set("com.netapp.spark.SparkCodeSubmissionServer")
+    mainClass.set("com.netapp.spark.SparkConnectWebsocketTranscodeDriverPlugin")
     //applicationArguments = listOf("9001", "local[*]")
     applicationDefaultJvmArgs = theJvmArgs
 }

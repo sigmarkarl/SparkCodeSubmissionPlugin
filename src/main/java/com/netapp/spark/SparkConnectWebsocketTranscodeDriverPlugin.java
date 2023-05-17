@@ -43,7 +43,6 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
             try {
                 var client = HttpClient.newHttpClient();
                 var bb = new byte[1024*1024];
-                var wsListener = new SparkCodeSubmissionWebSocketListener();
                 var serverSocket = new ServerSocket(port);
                 var running = true;
                 while (running) {
@@ -51,6 +50,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
                     var output = socket.getOutputStream();
                     var input = socket.getInputStream();
                     var channel = Channels.newChannel(output);
+                    var wsListener = new SparkCodeSubmissionWebSocketListener();
                     wsListener.setChannel(channel);
 
                     var webSocketBuilder = client.newWebSocketBuilder();
@@ -112,7 +112,13 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     }
 
     public static void main(String[] args) {
-        var plugin = new SparkConnectWebsocketTranscodeDriverPlugin(Integer.parseInt(args[0]), args[1], args.length > 2 ? args[2] : "");
+        int port = Integer.parseInt(args[0]);
+        var url = args[1];
+        var auth = args.length > 2 ? args[2] : "";
+        System.err.println(port);
+        System.err.println(url);
+        System.err.println(auth);
+        var plugin = new SparkConnectWebsocketTranscodeDriverPlugin(port, url, auth);
         plugin.startTranscodeServer();
     }
 }

@@ -1,5 +1,8 @@
 package com.netapp.spark;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
@@ -7,6 +10,8 @@ import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.CompletionStage;
 
 public class SparkCodeSubmissionWebSocketListener implements WebSocket.Listener {
+    static Logger logger = LoggerFactory.getLogger(SparkCodeSubmissionWebSocketListener.class);
+
     WritableByteChannel channel;
 
     public SparkCodeSubmissionWebSocketListener() {
@@ -19,20 +24,20 @@ public class SparkCodeSubmissionWebSocketListener implements WebSocket.Listener 
 
     @Override
     public void onOpen(WebSocket webSocket) {
-        System.err.println("opening");
+        logger.info("open websocket");
         WebSocket.Listener.super.onOpen(webSocket);
     }
 
     @Override
     public void onError(WebSocket webSocket, Throwable error) {
-        System.err.println("error");
-        error.printStackTrace();
+        logger.error("websocket error", error);
         WebSocket.Listener.super.onError(webSocket, error);
     }
 
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-        System.err.println("closing");
+        System.err.println("websocket close");
+        logger.info("closing websocket");
         return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
     }
 

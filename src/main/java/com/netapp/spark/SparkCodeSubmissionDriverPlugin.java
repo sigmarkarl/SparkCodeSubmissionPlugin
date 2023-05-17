@@ -97,7 +97,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             secret = py4jServer.secret();
             py4jServer.start();
         }
-        return RowFactory.create(pyport, secret);
+        return RowFactory.create("py4j", pyport, secret);
     }
 
     private Row initRBackend() {
@@ -107,7 +107,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         rbackendSecret = tuple._2.secret();
 
         new Thread(() -> rBackend.run()).start();
-        return RowFactory.create(rbackendPort, rbackendSecret);
+        return RowFactory.create("rbackend", rbackendPort, rbackendSecret);
     }
 
     private Process runProcess(List<String> arguments, Map<String,String> environment, String processName) throws IOException {
@@ -348,7 +348,6 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                                     WebSockets.sendBinaryBlocking(ByteBuffer.wrap(cbb, 0, read), channel);
                                 }
                             }
-                            System.err.println("hey fucker");
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
@@ -405,7 +404,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                         @Override
                         protected void onFullTextMessage(WebSocketChannel channel, BufferedTextMessage message) {
                             try {
-                                System.err.println("full close server");
+                                System.err.println("full close server " + message.getData());
                                 clientSocket.shutdownInput();
                                 super.onFullTextMessage(channel, message);
                             } catch (IOException e) {
@@ -461,10 +460,12 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             SparkConnectService.start();
 
             var connectInfo = new ArrayList<Row>();
-            //connectInfo.add(initPy4JServer(session.sparkContext()));
-            //connectInfo.add(initRBackend());
+            if (session!=null) {
+                connectInfo.add(initPy4JServer(session.sparkContext()));
+                connectInfo.add(initRBackend());
+            }
 
-            var df = session.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("port int, secret string")));
+            var df = session.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("type string, port int, secret string")));
             df.createOrReplaceGlobalTempView("spark_connect_info");
             var connInfoPath = System.getenv("PYSPARK_DRIVER_CONN_INFO_PATH");
             if (connInfoPath != null && !connInfoPath.isEmpty()) df.write().mode(SaveMode.Overwrite).save(connInfoPath);
