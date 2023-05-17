@@ -457,7 +457,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             port = Integer.parseInt(session.sparkContext().getConf().get("spark.code.submission.port", "9001"));
         }
         try {
-            SparkConnectService.start();
+            //SparkConnectService.start();
 
             var connectInfo = new ArrayList<Row>();
             if (session!=null) {
