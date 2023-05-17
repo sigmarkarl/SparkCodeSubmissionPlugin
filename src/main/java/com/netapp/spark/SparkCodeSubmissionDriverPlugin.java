@@ -42,7 +42,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     Undertow codeSubmissionServer;
     int port;
     ExecutorService virtualThreads;
-    ExecutorService transcodeThread;
+    ExecutorService transcodeThreads;
     Py4JServer py4jServer;
     int pyport;
     String secret;
@@ -58,7 +58,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     public SparkCodeSubmissionDriverPlugin(int port) {
         this.port = port;
         virtualThreads = Executors.newFixedThreadPool(10);
-        transcodeThread = Executors.newSingleThreadExecutor();
+        transcodeThreads = Executors.newFixedThreadPool(10);
     }
 
     public int getPort() {
@@ -331,13 +331,14 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                 try {
                     var clientSocket = new Socket();
                     clientSocket.connect(new InetSocketAddress("0.0.0.0", grpcPort));
-                    var cbb = new byte[1024 * 1024];
                     var clientInput = clientSocket.getInputStream();
-                    var clientOutput = clientSocket.getOutputStream();
-                    var socketChannel = Channels.newChannel(clientOutput);
+                    var sparkReceiveListener = new SparkReceiveListener(clientSocket);
+                    channel.getReceiveSetter().set(sparkReceiveListener);
+                    channel.resumeReceives();
 
-                    transcodeThread.submit(() -> {
+                    transcodeThreads.submit(() -> {
                         try {
+                            var cbb = new byte[1024 * 1024];
                             while (!clientSocket.isClosed()) {
                                 var available = Math.max(clientInput.available(), 1);
                                 var read = clientInput.read(cbb, 0, Math.min(available, cbb.length));
@@ -353,78 +354,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                             throw new RuntimeException(e);
                         }
                     });
-                    channel.getReceiveSetter().set(new AbstractReceiveListener() {
-                        @Override
-                        protected void onFullBinaryMessage(WebSocketChannel channel, BufferedBinaryMessage message) {
-                            try {
-                                var byteBuffers = message.getData().getResource();
-                                for (var bb : byteBuffers) {
-                                    socketChannel.write(bb);
-                                }
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
 
-                        @Override
-                        protected void onCloseMessage(CloseMessage cm, WebSocketChannel channel) {
-                            try {
-                                System.err.println("close server");
-                                //clientOutput.close();
-                                //clientInput.close();
-                                clientSocket.shutdownInput();
-                                clientSocket.close();
-                                super.onCloseMessage(cm, channel);
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-
-                        @Override
-                        protected void onClose(WebSocketChannel webSocketChannel, StreamSourceFrameChannel channel) {
-                            try {
-                                System.err.println("erm close");
-                                super.onClose(webSocketChannel, channel);
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-
-                        @Override
-                        protected void onFullCloseMessage(final WebSocketChannel channel, BufferedBinaryMessage message) {
-                            try {
-                                System.err.println("full close server");
-                                clientSocket.shutdownInput();
-                                clientSocket.close();
-                                super.onFullCloseMessage(channel, message);
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-
-                        @Override
-                        protected void onFullTextMessage(WebSocketChannel channel, BufferedTextMessage message) {
-                            try {
-                                System.err.println("full close server " + message.getData());
-                                clientSocket.shutdownInput();
-                                super.onFullTextMessage(channel, message);
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-                            /*var codeSubmissionStr = message.getData();
-                            try {
-                                var codeSubmission = mapper.readValue(codeSubmissionStr, CodeSubmission.class);
-                                var response = submitCode(session, codeSubmission);
-                                WebSockets.sendTextBlocking(response, channel);
-                            } catch (IOException | ClassNotFoundException | NoSuchMethodException | URISyntaxException |
-                                     ExecutionException | InterruptedException e) {
-                                logger.error("Failed to parse code submission", e);
-                                WebSockets.sendText("Failed to parse code submission", channel, null);
-                            }
-                        }*/
-                    });
-                    channel.resumeReceives();
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -458,7 +388,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             port = Integer.parseInt(session.sparkContext().getConf().get("spark.code.submission.port", "9001"));
         }
         try {
-            //SparkConnectService.start();
+            SparkConnectService.start();
 
             var connectInfo = new ArrayList<Row>();
             if (session!=null) {
@@ -504,7 +434,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             logger.debug("Interrupted while waiting for virtual threads to finish", e);
         }
         virtualThreads.shutdown();
-        transcodeThread.shutdown();
+        transcodeThreads.shutdown();
     }
 
     public boolean waitForVirtualThreads() throws InterruptedException {

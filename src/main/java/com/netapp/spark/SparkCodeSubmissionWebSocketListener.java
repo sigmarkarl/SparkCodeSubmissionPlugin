@@ -51,7 +51,7 @@ public class SparkCodeSubmissionWebSocketListener implements WebSocket.Listener 
         try {
             channel.write(data);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            logger.error("unable to write to grpc socket", e);
         }
         return WebSocket.Listener.super.onBinary(webSocket, data, last);
     }
