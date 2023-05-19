@@ -9,10 +9,7 @@ import org.apache.spark.api.plugin.PluginContext;
 import org.apache.spark.api.python.Py4JServer;
 import org.apache.spark.api.r.RAuthHelper;
 import org.apache.spark.api.r.RBackend;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.RowFactory;
-import org.apache.spark.sql.SaveMode;
-import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.*;
 import org.apache.spark.sql.catalyst.encoders.RowEncoder;
 import org.apache.spark.sql.connect.service.SparkConnectService;
 import org.apache.spark.sql.hive.thriftserver.HiveThriftServer2;
@@ -28,6 +25,7 @@ import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.net.*;
 import java.nio.ByteBuffer;
@@ -66,7 +64,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         return port;
     }
 
-    private Row initPy4JServer(SparkContext sc) throws IOException {
+    private Row initPy4JServer(SparkContext sc) throws IOException, NoSuchFieldException, IllegalAccessException {
         alterPysparkInitializeContext();
 
         var path = System.getenv("_PYSPARK_DRIVER_CONN_INFO_PATH");
@@ -97,6 +95,14 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             pyport = py4jServer.getListeningPort();
             secret = py4jServer.secret();
             py4jServer.start();
+            
+            Map<String, String> sysenv = System.getenv();
+            Field field = sysenv.getClass().getDeclaredField("m");
+            field.setAccessible(true);
+            var env = ((Map<String, String>) field.get(sysenv));
+            env.put("PYSPARK_GATEWAY_PORT", Integer.toString(pyport));
+            env.put("PYSPARK_GATEWAY_SECRET", secret);
+            env.put("PYSPARK_PIN_THREAD", "true");
         }
         return RowFactory.create("py4j", pyport, secret);
     }
@@ -321,9 +327,9 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         }
     }
 
-    void startCodeSubmissionServer(SparkSession session) throws IOException {
+    void startCodeSubmissionServer(SparkContext sc) throws IOException {
         var mapper = new ObjectMapper();
-        var grpcPort = session != null ? session.conf().get("spark.connect.grpc.binding.port", "15002") : "15002";
+        var grpcPort = sc != null ? sc.conf().get("spark.connect.grpc.binding.port", "15002") : "15002";
         System.err.println("Starting grpc socket on port " + grpcPort);
         codeSubmissionServer = Undertow.builder()
             .addHttpListener(port, "0.0.0.0")
@@ -385,22 +391,20 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         codeSubmissionServer.start();
     }
 
-    void init(SparkSession session) {
-        System.err.println("init code submissoin plugin");
-        Arrays.stream(Thread.currentThread().getStackTrace()).forEach(s -> System.err.println(s));
+    void init(SparkContext sc, SQLContext sqlContext) throws NoSuchFieldException, IllegalAccessException {
         logger.info("Starting code submission server");
         if (port == -1) {
-            port = Integer.parseInt(session.sparkContext().getConf().get("spark.code.submission.port", "9001"));
+            port = Integer.parseInt(sc.conf().get("spark.code.submission.port", "9001"));
         }
         try {
-            var useSparkConnect = session.sparkContext().conf().get("spark.code.submission.connect", "false");
-            var usePySpark = session.sparkContext().conf().get("spark.code.submission.pyspark", "false");
-            var useRBackend = session.sparkContext().conf().get("spark.code.submission.sparkr", "false");
-            var useHive = session.sparkContext().conf().get("spark.code.submission.hive", "false");
+            var useSparkConnect = sc.conf().get("spark.code.submission.connect", "true");
+            var usePySpark = sc.conf().get("spark.code.submission.pyspark", "true");
+            var useRBackend = sc.conf().get("spark.code.submission.sparkr", "true");
+            var useHive = sc.conf().get("spark.code.submission.hive", "true");
             if (useSparkConnect.equalsIgnoreCase("true")) SparkConnectService.start();
             if (useHive.equalsIgnoreCase("true")) {
-                var hiveThriftServer = new HiveThriftServer2(session.sqlContext());
-                var hiveEventManager = new HiveThriftServer2EventManager(session.sparkContext());
+                var hiveThriftServer = new HiveThriftServer2(sqlContext);
+                var hiveEventManager = new HiveThriftServer2EventManager(sc);
                 HiveThriftServer2.eventManager_$eq(hiveEventManager);
                 var hiveConf = new HiveConf();
                 hiveThriftServer.init(hiveConf);
@@ -408,15 +412,15 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             }
 
             var connectInfo = new ArrayList<Row>();
-            if (usePySpark.equalsIgnoreCase("true")) connectInfo.add(initPy4JServer(session.sparkContext()));
-            if (useRBackend.equalsIgnoreCase("true")) connectInfo.add(initRBackend());
-
-            var df = session.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("type string, port int, secret string")));
+            if (usePySpark.equalsIgnoreCase("true")) connectInfo.add(initPy4JServer(sc));
+            if (useRBackend.equalsIgnoreCase("true"))connectInfo.add(initRBackend());
+            
+            var df = sqlContext.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("type string, port int, secret string")));
             df.createOrReplaceGlobalTempView("spark_connect_info");
             var connInfoPath = System.getenv("PYSPARK_DRIVER_CONN_INFO_PATH");
             if (connInfoPath != null && !connInfoPath.isEmpty()) df.write().mode(SaveMode.Overwrite).save(connInfoPath);
 
-            startCodeSubmissionServer(session);
+            startCodeSubmissionServer(sc);
         } catch (RuntimeException e) {
             logger.error("Failed to start code submission server at port: " + port, e);
             throw e;
@@ -428,9 +432,11 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
 
     @Override
     public Map<String,String> init(SparkContext sc, PluginContext myContext) {
-        var activeSession = SparkSession.getActiveSession();
-        var session = activeSession.isDefined() ? activeSession.get() : new SparkSession(sc);
-        init(session);
+        try {
+            init(sc, new SQLContext(sc));
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
 
         return Collections.emptyMap();
     }
