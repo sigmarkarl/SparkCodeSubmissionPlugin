@@ -428,7 +428,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
 
     @Override
     public Map<String,String> init(SparkContext sc, PluginContext myContext) {
-        var session = new SparkSession(sc);
+        var activeSession = SparkSession.getActiveSession();
+        var session = activeSession.isDefined() ? activeSession.get() : new SparkSession(sc);
         init(session);
 
         return Collections.emptyMap();
