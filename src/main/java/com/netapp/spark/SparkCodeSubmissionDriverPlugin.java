@@ -3,6 +3,7 @@ package com.netapp.spark;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.undertow.Undertow;
 import io.undertow.websockets.core.*;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.plugin.PluginContext;
 import org.apache.spark.api.python.Py4JServer;
@@ -14,6 +15,8 @@ import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.catalyst.encoders.RowEncoder;
 import org.apache.spark.sql.connect.service.SparkConnectService;
+import org.apache.spark.sql.hive.thriftserver.HiveThriftServer2;
+import org.apache.spark.sql.hive.thriftserver.ui.HiveThriftServer2EventManager;
 import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,13 +31,11 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.*;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 
-import static io.undertow.Handlers.path;
 import static io.undertow.Handlers.websocket;
 
 public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plugin.DriverPlugin {
@@ -322,15 +323,18 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
 
     void startCodeSubmissionServer(SparkSession session) throws IOException {
         var mapper = new ObjectMapper();
-        var grpcPort = session != null ? Integer.parseInt(session.conf().get("spark.connect.grpc.binding.port", "15002")) : 15002;
+        var grpcPort = session != null ? session.conf().get("spark.connect.grpc.binding.port", "15002") : "15002";
         System.err.println("Starting grpc socket on port " + grpcPort);
         codeSubmissionServer = Undertow.builder()
             .addHttpListener(port, "0.0.0.0")
             //.setHandler(path().addPrefixPath("/", websocket((exchange, channel) -> {
             .setHandler(websocket((exchange, channel) -> {
                 try {
+                    var portList = exchange.getRequestParameters().getOrDefault("port", List.of(grpcPort));
+                    var usedPort = Integer.parseInt(portList.get(0));
+                    
                     var clientSocket = new Socket();
-                    clientSocket.connect(new InetSocketAddress("0.0.0.0", grpcPort));
+                    clientSocket.connect(new InetSocketAddress("0.0.0.0", usedPort));
                     var clientInput = clientSocket.getInputStream();
                     var sparkReceiveListener = new SparkReceiveListener(clientSocket);
                     channel.getReceiveSetter().set(sparkReceiveListener);
@@ -354,7 +358,6 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                             throw new RuntimeException(e);
                         }
                     });
-
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -388,13 +391,18 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             port = Integer.parseInt(session.sparkContext().getConf().get("spark.code.submission.port", "9001"));
         }
         try {
-            SparkConnectService.start();
+            var useSparkConnect = session.sparkContext().conf().get("spark.code.submission.connect", "false");
+            if (useSparkConnect.equalsIgnoreCase("true")) SparkConnectService.start();
+            var hiveThriftServer = new HiveThriftServer2(session.sqlContext());
+            var hiveEventManager = new HiveThriftServer2EventManager(session.sparkContext());
+            HiveThriftServer2.eventManager_$eq(hiveEventManager);
+            var hiveConf = new HiveConf();
+            hiveThriftServer.init(hiveConf);
+            hiveThriftServer.start();
 
             var connectInfo = new ArrayList<Row>();
-            if (session!=null) {
-                connectInfo.add(initPy4JServer(session.sparkContext()));
-                connectInfo.add(initRBackend());
-            }
+            connectInfo.add(initPy4JServer(session.sparkContext()));
+            connectInfo.add(initRBackend());
 
             var df = session.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("type string, port int, secret string")));
             df.createOrReplaceGlobalTempView("spark_connect_info");
