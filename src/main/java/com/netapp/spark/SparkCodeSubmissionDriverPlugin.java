@@ -386,6 +386,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     }
 
     void init(SparkSession session) {
+        System.err.println("init code submissoin plugin");
+        Arrays.stream(Thread.currentThread().getStackTrace()).forEach(s -> System.err.println(s));
         logger.info("Starting code submission server");
         if (port == -1) {
             port = Integer.parseInt(session.sparkContext().getConf().get("spark.code.submission.port", "9001"));
