@@ -394,17 +394,22 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         }
         try {
             var useSparkConnect = session.sparkContext().conf().get("spark.code.submission.connect", "false");
+            var usePySpark = session.sparkContext().conf().get("spark.code.submission.pyspark", "false");
+            var useRBackend = session.sparkContext().conf().get("spark.code.submission.sparkr", "false");
+            var useHive = session.sparkContext().conf().get("spark.code.submission.hive", "false");
             if (useSparkConnect.equalsIgnoreCase("true")) SparkConnectService.start();
-            var hiveThriftServer = new HiveThriftServer2(session.sqlContext());
-            var hiveEventManager = new HiveThriftServer2EventManager(session.sparkContext());
-            HiveThriftServer2.eventManager_$eq(hiveEventManager);
-            var hiveConf = new HiveConf();
-            hiveThriftServer.init(hiveConf);
-            hiveThriftServer.start();
+            if (useHive.equalsIgnoreCase("true")) {
+                var hiveThriftServer = new HiveThriftServer2(session.sqlContext());
+                var hiveEventManager = new HiveThriftServer2EventManager(session.sparkContext());
+                HiveThriftServer2.eventManager_$eq(hiveEventManager);
+                var hiveConf = new HiveConf();
+                hiveThriftServer.init(hiveConf);
+                hiveThriftServer.start();
+            }
 
             var connectInfo = new ArrayList<Row>();
-            connectInfo.add(initPy4JServer(session.sparkContext()));
-            connectInfo.add(initRBackend());
+            if (usePySpark.equalsIgnoreCase("true")) connectInfo.add(initPy4JServer(session.sparkContext()));
+            if (useRBackend.equalsIgnoreCase("true")) connectInfo.add(initRBackend());
 
             var df = session.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("type string, port int, secret string")));
             df.createOrReplaceGlobalTempView("spark_connect_info");
