@@ -41,7 +41,6 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     Undertow codeSubmissionServer;
     int port;
     ExecutorService virtualThreads;
-    ExecutorService transcodeThreads;
     Py4JServer py4jServer;
     int pyport;
     String secret;
@@ -57,7 +56,6 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     public SparkCodeSubmissionDriverPlugin(int port) {
         this.port = port;
         virtualThreads = Executors.newFixedThreadPool(10);
-        transcodeThreads = Executors.newFixedThreadPool(10);
     }
 
     public int getPort() {
@@ -328,42 +326,26 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     }
 
     void startCodeSubmissionServer(SparkContext sc) throws IOException {
-        var mapper = new ObjectMapper();
+        //var mapper = new ObjectMapper();
         var grpcPort = sc != null ? sc.conf().get("spark.connect.grpc.binding.port", "15002") : "15002";
+        var hivePortStr = System.getenv("HIVE_SERVER2_THRIFT_PORT");
+        var hivePort = (hivePortStr == null || hivePortStr.isEmpty()) ? "10000" : hivePortStr;
         System.err.println("Starting grpc socket on port " + grpcPort);
         codeSubmissionServer = Undertow.builder()
             .addHttpListener(port, "0.0.0.0")
             //.setHandler(path().addPrefixPath("/", websocket((exchange, channel) -> {
             .setHandler(websocket((exchange, channel) -> {
                 try {
-                    var portList = exchange.getRequestParameters().getOrDefault("port", List.of(grpcPort));
-                    var usedPort = Integer.parseInt(portList.get(0));
+                    var grpcList = exchange.getRequestParameters().getOrDefault("grpc", List.of(grpcPort));
+                    var usedGrpc = Integer.parseInt(grpcList.get(0));
+
+                    var hiveList = exchange.getRequestParameters().getOrDefault("grpc", List.of(hivePort));
+                    var usedHive = Integer.parseInt(hiveList.get(0));
                     
                     var clientSocket = new Socket();
-                    clientSocket.connect(new InetSocketAddress("0.0.0.0", usedPort));
-                    var clientInput = clientSocket.getInputStream();
-                    var sparkReceiveListener = new SparkReceiveListener(clientSocket);
+                    var sparkReceiveListener = new SparkReceiveListener(virtualThreads, channel, clientSocket, usedHive, usedGrpc);
                     channel.getReceiveSetter().set(sparkReceiveListener);
                     channel.resumeReceives();
-
-                    transcodeThreads.submit(() -> {
-                        try {
-                            var cbb = new byte[1024 * 1024];
-                            while (!clientSocket.isClosed()) {
-                                var available = Math.max(clientInput.available(), 1);
-                                var read = clientInput.read(cbb, 0, Math.min(available, cbb.length));
-                                if (read == -1) {
-                                    System.err.println("Client closed connection");
-                                    break;
-                                } else {
-                                    System.err.println("Sending " + read + " bytes");
-                                    WebSockets.sendBinaryBlocking(ByteBuffer.wrap(cbb, 0, read), channel);
-                                }
-                            }
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -456,7 +438,6 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             logger.debug("Interrupted while waiting for virtual threads to finish", e);
         }
         virtualThreads.shutdown();
-        transcodeThreads.shutdown();
     }
 
     public boolean waitForVirtualThreads() throws InterruptedException {
