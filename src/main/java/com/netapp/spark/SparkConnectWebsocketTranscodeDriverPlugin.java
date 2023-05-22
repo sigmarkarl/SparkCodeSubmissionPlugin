@@ -2,7 +2,6 @@ package com.netapp.spark;
 
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.plugin.PluginContext;
-import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -117,9 +116,6 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
         int port = Integer.parseInt(args[0]);
         var url = args[1];
         var auth = args.length > 2 ? args[2] : "";
-        System.err.println(port);
-        System.err.println(url);
-        System.err.println(auth);
         var plugin = new SparkConnectWebsocketTranscodeDriverPlugin(port, url, auth);
         plugin.startTranscodeServer();
     }
