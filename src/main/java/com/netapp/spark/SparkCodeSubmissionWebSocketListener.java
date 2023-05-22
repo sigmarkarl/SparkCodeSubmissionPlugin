@@ -35,6 +35,20 @@ public class SparkCodeSubmissionWebSocketListener implements WebSocket.Listener 
     }
 
     @Override
+    public CompletionStage<?> onPing(WebSocket webSocket,
+                                     ByteBuffer message) {
+        logger.info("ping");
+        return WebSocket.Listener.super.onPing(webSocket, message);
+    }
+
+    @Override
+    public CompletionStage<?> onPong(WebSocket webSocket,
+                                     ByteBuffer message) {
+        logger.info("ping");
+        return WebSocket.Listener.super.onPong(webSocket, message);
+    }
+
+    @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
         System.err.println("websocket close");
         logger.info("closing websocket");

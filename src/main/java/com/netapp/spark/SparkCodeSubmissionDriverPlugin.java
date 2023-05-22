@@ -93,7 +93,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             pyport = py4jServer.getListeningPort();
             secret = py4jServer.secret();
             py4jServer.start();
-            
+
             Map<String, String> sysenv = System.getenv();
             Field field = sysenv.getClass().getDeclaredField("m");
             field.setAccessible(true);
@@ -341,9 +341,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
 
                     var hiveList = exchange.getRequestParameters().getOrDefault("grpc", List.of(hivePort));
                     var usedHive = Integer.parseInt(hiveList.get(0));
-                    
-                    var clientSocket = new Socket();
-                    var sparkReceiveListener = new SparkReceiveListener(virtualThreads, channel, clientSocket, usedHive, usedGrpc);
+
+                    var sparkReceiveListener = new SparkReceiveListener(virtualThreads, channel, usedHive, usedGrpc);
                     channel.getReceiveSetter().set(sparkReceiveListener);
                     channel.resumeReceives();
                 } catch (IOException e) {
@@ -396,7 +395,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             var connectInfo = new ArrayList<Row>();
             if (usePySpark.equalsIgnoreCase("true")) connectInfo.add(initPy4JServer(sc));
             if (useRBackend.equalsIgnoreCase("true"))connectInfo.add(initRBackend());
-            
+
             var df = sqlContext.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("type string, port int, secret string")));
             df.createOrReplaceGlobalTempView("spark_connect_info");
             var connInfoPath = System.getenv("PYSPARK_DRIVER_CONN_INFO_PATH");

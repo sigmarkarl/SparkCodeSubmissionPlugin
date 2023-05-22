@@ -8,11 +8,14 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.http.HttpClient;
+import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -34,6 +37,18 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
         transcodeThreads = Executors.newFixedThreadPool(10);
     }
 
+    WebSocket getWebSocket(WritableByteChannel channel) {
+        var wsListener = new SparkCodeSubmissionWebSocketListener();
+        wsListener.setChannel(channel);
+
+        var client = HttpClient.newHttpClient();
+        var webSocketBuilder = client.newWebSocketBuilder();
+        for (var h : headers.entrySet()) {
+            webSocketBuilder = webSocketBuilder.header(h.getKey(), h.getValue());
+        }
+        return webSocketBuilder.buildAsync(java.net.URI.create(urlstr), wsListener).join();
+    }
+
     void startTranscodeServer() {
         logger.info("Starting code submission server");
         transcodeThreads.submit(() -> {
@@ -43,31 +58,37 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
                     var socket = serverSocket.accept();
                     transcodeThreads.submit(() -> {
                         try (socket) {
-                            var client = HttpClient.newHttpClient();
                             var bb = new byte[1024*1024];
                             var output = socket.getOutputStream();
                             var input = socket.getInputStream();
                             var channel = Channels.newChannel(output);
-                            var wsListener = new SparkCodeSubmissionWebSocketListener();
-                            wsListener.setChannel(channel);
 
-                            var webSocketBuilder = client.newWebSocketBuilder();
-                            for (var h : headers.entrySet()) {
-                                webSocketBuilder = webSocketBuilder.header(h.getKey(), h.getValue());
-                            }
-                            var webSocket = webSocketBuilder.buildAsync(java.net.URI.create(urlstr), wsListener).join();
-
+                            var webSocket = getWebSocket(channel);
+                            var timerTask = new TimerTask() {
+                                @Override
+                                public void run() {
+                                    logger.info("sending ping");
+                                    webSocket.sendPing(ByteBuffer.wrap("ping".getBytes()));
+                                }
+                            };
+                            var timer = new java.util.Timer();
+                            timer.schedule(timerTask, 5000, 5000);
                             while (true) {
                                 var available = Math.max(input.available(), 1);
                                 var read = input.read(bb, 0, Math.min(available, bb.length));
                                 if (read == -1) {
                                     break;
                                 } else {
+                                    /*if (webSocket.isInputClosed() || webSocket.isOutputClosed()) {
+                                        webSocket.sendClose(200, "Spark Connect closed");
+                                        webSocket = getWebSocket(channel);
+                                    }*/
                                     webSocket.sendBinary(ByteBuffer.wrap(bb, 0, read), true);
                                 }
                             }
                             webSocket.sendText("loft", true);
                             webSocket.sendClose(200, "Spark Connect closed");
+                            timer.cancel();
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }

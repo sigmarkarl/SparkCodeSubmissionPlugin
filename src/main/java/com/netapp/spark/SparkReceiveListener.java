@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.ExecutorService;
@@ -19,15 +18,15 @@ public class SparkReceiveListener extends AbstractReceiveListener {
     int grpcPort;
     ExecutorService virtualThreads;
     WebSocketChannel channel;
-    
-    SparkReceiveListener(ExecutorService virtualThreads, WebSocketChannel channel, Socket clientSocket, int hivePort, int grpcPort) throws IOException {
-        this.clientSocket = clientSocket;
+
+    SparkReceiveListener(ExecutorService virtualThreads, WebSocketChannel channel, int hivePort, int grpcPort) throws IOException {
+        this.clientSocket = new Socket();
         this.grpcPort = grpcPort;
         this.hivePort = hivePort;
         this.virtualThreads = virtualThreads;
         this.channel = channel;
     }
-    
+
     void init(ByteBuffer bb) throws IOException {
         first = false;
         int port = bb.get(0) == 1 ? hivePort : grpcPort;
@@ -56,7 +55,7 @@ public class SparkReceiveListener extends AbstractReceiveListener {
             }
         });
     }
-    
+
     @Override
     protected void onFullBinaryMessage(WebSocketChannel channel, BufferedBinaryMessage message) {
         try {
@@ -118,7 +117,7 @@ public class SparkReceiveListener extends AbstractReceiveListener {
             throw new RuntimeException(e);
         }
     }
-    
+
     /*var codeSubmissionStr = message.getData();
         try {
             var codeSubmission = mapper.readValue(codeSubmissionStr, CodeSubmission.class);
