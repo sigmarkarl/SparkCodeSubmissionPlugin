@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.http.HttpClient;
-import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.util.Collections;
@@ -38,8 +37,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     void startTranscodeServer() {
         logger.info("Starting code submission server");
         transcodeThreads.submit(() -> {
-            try {
-                var serverSocket = new ServerSocket(port);
+            try (var serverSocket = new ServerSocket(port)) {
                 var running = true;
                 while (running) {
                     var socket = serverSocket.accept();
