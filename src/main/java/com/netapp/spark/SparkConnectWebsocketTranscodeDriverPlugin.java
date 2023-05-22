@@ -23,7 +23,6 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     int port = -1;
     String urlstr;
     Map<String,String> headers;
-    WebSocket   webSocket;
 
     public SparkConnectWebsocketTranscodeDriverPlugin(int port, String url, String header) {
         this();
