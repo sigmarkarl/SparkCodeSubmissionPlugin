@@ -56,7 +56,7 @@ public class SparkCodeSubmissionDriverPluginTest {
     }
 
     void testSparkSubmissionDriverPlugin(CodeSubmission codeSubmission) throws IOException, ClassNotFoundException, NoSuchMethodException, InterruptedException, URISyntaxException, ExecutionException {
-        sparkCodeSubmissionDriverPlugin.submitCode(spark, codeSubmission);
+        sparkCodeSubmissionDriverPlugin.submitCode(spark, codeSubmission, mapper);
         sparkCodeSubmissionDriverPlugin.waitForVirtualThreads();
         checkResultsFile();
     }
