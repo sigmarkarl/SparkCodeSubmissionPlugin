@@ -1,6 +1,8 @@
 package com.netapp.spark;
 
 import org.apache.spark.sql.SparkSession;
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 public class SparkCodeSubmissionServer implements AutoCloseable {
     SparkSession spark;
@@ -37,6 +39,8 @@ public class SparkCodeSubmissionServer implements AutoCloseable {
 
     public static void main(String[] args) {
         try {
+            var sigchld = new Signal("CHLD");
+            Signal.handle(sigchld, SignalHandler.SIG_IGN);
             switch (args.length) {
                 case 0 -> new SparkCodeSubmissionServer().start();
                 case 1 -> {

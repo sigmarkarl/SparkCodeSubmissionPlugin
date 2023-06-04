@@ -1,8 +1,14 @@
 package com.netapp.spark;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.undertow.Undertow;
-import io.undertow.websockets.core.*;
+
+import io.undertow.server.HttpServerExchange;
+import io.undertow.server.handlers.BlockingHandler;
+import io.undertow.util.Headers;
+import io.undertow.websockets.core.WebSocketChannel;
+import io.undertow.websockets.spi.WebSocketHttpExchange;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.plugin.PluginContext;
@@ -171,7 +177,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         return runProcess(args, pythonEnv, cmd, inheritOutput);
     }
 
-    public String submitCode(SparkSession sqlContext, CodeSubmission codeSubmission) throws IOException, ClassNotFoundException, NoSuchMethodException, URISyntaxException, ExecutionException, InterruptedException {
+    public String submitCode(SparkSession sqlContext, CodeSubmission codeSubmission, ObjectMapper mapper) throws IOException, ClassNotFoundException, NoSuchMethodException, URISyntaxException, ExecutionException, InterruptedException {
         var defaultResponse = codeSubmission.type() + " code submitted";
         switch (codeSubmission.type()) {
             case SQL -> {
@@ -196,14 +202,14 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                             switch (codeSubmission.resultFormat()) {
                                 case "json" -> {
                                     var json = df.toJSON().collectAsList();
-                                    return new ObjectMapper().writeValueAsString(json);
+                                    return mapper.writeValueAsString(json);
                                 }
                                 case "csv" -> {
                                     return String.join(",", df.collectAsList().toArray(String[]::new));
                                 }
                                 default -> {
                                     var rows = df.collectAsList();
-                                    return new ObjectMapper().writeValueAsString(rows);
+                                    return mapper.writeValueAsString(rows);
                                 }
                             }
                         }).get();
@@ -325,47 +331,73 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         }
     }
 
-    void startCodeSubmissionServer(SparkContext sc) throws IOException {
-        //var mapper = new ObjectMapper();
-        var grpcPort = sc != null ? sc.conf().get("spark.connect.grpc.binding.port", "15002") : "15002";
-        var hivePortStr = System.getenv("HIVE_SERVER2_THRIFT_PORT");
-        var hivePort = (hivePortStr == null || hivePortStr.isEmpty()) ? "10000" : hivePortStr;
-        System.err.println("Starting grpc socket on port " + grpcPort);
-        codeSubmissionServer = Undertow.builder()
-            .addHttpListener(port, "0.0.0.0")
-            //.setHandler(path().addPrefixPath("/", websocket((exchange, channel) -> {
-            .setHandler(websocket((exchange, channel) -> {
+    void handlePostRequest(HttpServerExchange exchange, SparkContext sparkContext, ObjectMapper mapper) {
+        if (exchange.getRequestMethod().equalToString("POST")) {
+            exchange.getRequestReceiver().receiveFullString((ex, codeSubmissionStr) -> {
                 try {
-                    var grpcList = exchange.getRequestParameters().getOrDefault("grpc", List.of(grpcPort));
-                    var usedGrpc = Integer.parseInt(grpcList.get(0));
-
-                    var hiveList = exchange.getRequestParameters().getOrDefault("grpc", List.of(hivePort));
-                    var usedHive = Integer.parseInt(hiveList.get(0));
-
-                    var sparkReceiveListener = new SparkReceiveListener(virtualThreads, channel, usedHive, usedGrpc);
-                    channel.getReceiveSetter().set(sparkReceiveListener);
-                    channel.resumeReceives();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }))/*).addPrefixPath("/status", exchange -> {
-                var status = new HashMap<String, Object>();
-                status.put("port", port);
-                status.put("virtualThreads", virtualThreads);
-                status.put("sparkSession", session);
-                exchange.getResponseSender().send(mapper.writeValueAsString(status));
-            }))*/
-            /*.setHandler(new BlockingHandler(exchange -> {
-                var codeSubmissionStr = new String(exchange.getInputStream().readAllBytes());
-                try {
-                    var codeSubmission = mapper.readValue(codeSubmissionStr, CodeSubmission.class);
-                    var response = submitCode(session, codeSubmission);
-                    exchange.getResponseSender().send(response);
+                    var session = SparkSession.getActiveSession().isDefined() ? SparkSession.getActiveSession().get() : new SparkSession(sparkContext);
+                    if (codeSubmissionStr.contains("appId")) {
+                        var jsonMap = mapper.readValue(codeSubmissionStr, Map.class);
+                        var configOverrides = jsonMap.get("configOverrides");
+                        if (configOverrides != null) {
+                            var configOverridesMap = (Map<String, Object>) configOverrides;
+                            var arguments = configOverridesMap.get("arguments");
+                            if (arguments instanceof List) {
+                                var argumentsList = (List<String>) arguments;
+                                var args = new ArrayList<String>();
+                                args.add("src/main/resources/launch_ipykernel_old.py");
+                                args.addAll(argumentsList);
+                                runProcess(args, Collections.emptyMap(), "python3");
+                            }
+                        }
+                    } else {
+                        var codeSubmission = mapper.readValue(codeSubmissionStr, CodeSubmission.class);
+                        var response = submitCode(session, codeSubmission, mapper);
+                        exchange.getResponseSender().send(response);
+                    }
                 } catch (JsonProcessingException e) {
                     logger.error("Failed to parse code submission", e);
                     exchange.getResponseSender().send("Failed to parse code submission");
+                } catch (IOException | URISyntaxException | ExecutionException | ClassNotFoundException |
+                         InterruptedException | NoSuchMethodException e) {
+                    logger.error("Failed to submit code", e);
+                    exchange.getResponseSender().send("Failed to submit code");
                 }
-            }))*/
+            });
+        } else {
+            // Return a 404 response for other request methods
+            exchange.setStatusCode(404);
+            exchange.getResponseHeaders().put(Headers.CONTENT_TYPE, "text/plain");
+            exchange.getResponseSender().send("Not found");
+        }
+    }
+
+    void handleWebsocketRequest(WebSocketHttpExchange exchange, WebSocketChannel channel, String grpcPort, String hivePort) {
+        var grpcList = exchange.getRequestParameters().getOrDefault("grpc", List.of(grpcPort));
+        var usedGrpc = Integer.parseInt(grpcList.get(0));
+
+        var hiveList = exchange.getRequestParameters().getOrDefault("grpc", List.of(hivePort));
+        var usedHive = Integer.parseInt(hiveList.get(0));
+
+        try {
+            var sparkReceiveListener = new SparkReceiveListener(virtualThreads, channel, usedHive, usedGrpc);
+            channel.getReceiveSetter().set(sparkReceiveListener);
+            channel.resumeReceives();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    void startCodeSubmissionServer(SparkContext sc) throws IOException {
+        var mapper = new ObjectMapper();
+        var grpcPort = sc != null ? sc.conf().get("spark.connect.grpc.binding.port", "15002") : "15002";
+        var hivePortStr = System.getenv("HIVE_SERVER2_THRIFT_PORT");
+        var hivePort = (hivePortStr == null || hivePortStr.isEmpty()) ? "10000" : hivePortStr;
+
+        var webSocketPostHandler = websocket((exchange, channel) -> handleWebsocketRequest(exchange, channel, grpcPort, hivePort), new BlockingHandler(exchange -> handlePostRequest(exchange, sc, mapper)));
+        codeSubmissionServer = Undertow.builder()
+            .addHttpListener(port, "0.0.0.0")
+            .setHandler(webSocketPostHandler)
             .build();
 
         System.err.println("Using submission port "+ port);
