@@ -114,7 +114,7 @@ publishing {
     publications {
         register<MavenPublication>("gpr") {
             groupId = "com.netapp.spark"
-            artifactId = "codesubmission"
+            artifactId = "codesubmission_jdk20"
             version = "1.0.0"
 
             from(components["java"])
