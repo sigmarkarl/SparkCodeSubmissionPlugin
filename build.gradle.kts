@@ -11,6 +11,7 @@ version = "1.0.0"
 
 var theJvmArgs = listOf(
     "--enable-preview",
+    "--add-opens=java.base/java.util=ALL-UNNAMED",
     "--add-opens=java.base/java.util.regex=ALL-UNNAMED",
     "--add-opens=java.base/java.lang=ALL-UNNAMED",
     "--add-opens=java.base/java.time=ALL-UNNAMED",
@@ -100,6 +101,8 @@ dependencies {
     implementation("org.apache.spark:spark-core_2.12:3.4.0")
     implementation("org.apache.spark:spark-connect_2.12:3.4.0")
     implementation("org.apache.spark:spark-sql_2.12:3.4.0")
+    implementation("org.apache.spark:spark-hive_2.12:3.4.0")
+    implementation("org.apache.spark:spark-hive-thriftserver_2.12:3.4.0")
     implementation("io.undertow:undertow-core:2.3.5.Final")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.14.2")
 
@@ -109,7 +112,7 @@ dependencies {
 
 publishing {
     publications {
-        create<MavenPublication>("maven") {
+        register<MavenPublication>("gpr") {
             groupId = "com.netapp.spark"
             artifactId = "codesubmission"
             version = "1.0.0"
@@ -120,6 +123,14 @@ publishing {
     repositories {
         maven {
             url = uri(layout.projectDirectory.dir("repo"))
+        }
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/sigmarkarl/SparkCodeSubmissionPlugin")
+            credentials {
+                username = project.findProperty("gpr.user") as String? ?: System.getenv("USERNAME")
+                password = project.findProperty("gpr.key") as String? ?: System.getenv("TOKEN")
+            }
         }
     }
 }

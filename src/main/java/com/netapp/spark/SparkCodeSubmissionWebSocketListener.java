@@ -1,34 +1,56 @@
 package com.netapp.spark;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.CompletionStage;
 
 public class SparkCodeSubmissionWebSocketListener implements WebSocket.Listener {
-    OutputStream output;
+    static Logger logger = LoggerFactory.getLogger(SparkCodeSubmissionWebSocketListener.class);
+
     WritableByteChannel channel;
 
-    public SparkCodeSubmissionWebSocketListener(OutputStream output) {
-        this.output = output;
-        this.channel = Channels.newChannel(output);
+    public SparkCodeSubmissionWebSocketListener() {
+        super();
+    }
+
+    public void setChannel(WritableByteChannel channel) {
+        this.channel = channel;
     }
 
     @Override
     public void onOpen(WebSocket webSocket) {
+        logger.info("open websocket");
         WebSocket.Listener.super.onOpen(webSocket);
     }
 
     @Override
     public void onError(WebSocket webSocket, Throwable error) {
+        logger.error("websocket error", error);
         WebSocket.Listener.super.onError(webSocket, error);
     }
 
     @Override
+    public CompletionStage<?> onPing(WebSocket webSocket,
+                                     ByteBuffer message) {
+        logger.info("ping");
+        return WebSocket.Listener.super.onPing(webSocket, message);
+    }
+
+    @Override
+    public CompletionStage<?> onPong(WebSocket webSocket,
+                                     ByteBuffer message) {
+        logger.info("ping");
+        return WebSocket.Listener.super.onPong(webSocket, message);
+    }
+
+    @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+        logger.info("closing websocket");
         return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
     }
 
@@ -42,7 +64,7 @@ public class SparkCodeSubmissionWebSocketListener implements WebSocket.Listener 
         try {
             channel.write(data);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            logger.error("unable to write to grpc socket", e);
         }
         return WebSocket.Listener.super.onBinary(webSocket, data, last);
     }

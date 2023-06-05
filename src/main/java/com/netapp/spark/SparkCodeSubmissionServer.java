@@ -1,6 +1,8 @@
 package com.netapp.spark;
 
 import org.apache.spark.sql.SparkSession;
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 public class SparkCodeSubmissionServer implements AutoCloseable {
     SparkSession spark;
@@ -18,7 +20,7 @@ public class SparkCodeSubmissionServer implements AutoCloseable {
     public SparkCodeSubmissionServer(String master) {
         if (master!=null) {
             if (!master.equalsIgnoreCase("none")) {
-                spark = SparkSession.builder().master(master).appName("SparkCodeSubmissionServer").getOrCreate();
+                spark = SparkSession.builder().master(master).appName("SparkCodeSubmissionServer").enableHiveSupport().getOrCreate();
             }
         } else {
             spark = SparkSession.builder().getOrCreate();
@@ -30,28 +32,30 @@ public class SparkCodeSubmissionServer implements AutoCloseable {
         this.port = port;
     }
 
-    public void start() {
+    public void start() throws NoSuchFieldException, IllegalAccessException {
         var server = new SparkCodeSubmissionDriverPlugin(port);
-        server.init(spark);
+        server.init(spark.sparkContext(), spark.sqlContext());
     }
 
     public static void main(String[] args) {
-        switch (args.length) {
-            case 0 -> new SparkCodeSubmissionServer().start();
-            case 1 -> {
-                if (args[0].matches("\\d+")) {
-                    new SparkCodeSubmissionServer(Integer.parseInt(args[0])).start();
-                } else {
-                    new SparkCodeSubmissionServer(args[0]).start();
-                }
-            }
-            case 2 -> new SparkCodeSubmissionServer(Integer.parseInt(args[0]), args[1]).start();
-            default -> new SparkCodeSubmissionServer().start();
-        }
         try {
+            var sigchld = new Signal("CHLD");
+            Signal.handle(sigchld, SignalHandler.SIG_IGN);
+            switch (args.length) {
+                case 0 -> new SparkCodeSubmissionServer().start();
+                case 1 -> {
+                    if (args[0].matches("\\d+")) {
+                        new SparkCodeSubmissionServer(Integer.parseInt(args[0])).start();
+                    } else {
+                        new SparkCodeSubmissionServer(args[0]).start();
+                    }
+                }
+                case 2 -> new SparkCodeSubmissionServer(Integer.parseInt(args[0]), args[1]).start();
+                default -> new SparkCodeSubmissionServer().start();
+            }
             System.err.println("Sleeping ...");
             Thread.sleep(1000000000L);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException | NoSuchFieldException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
