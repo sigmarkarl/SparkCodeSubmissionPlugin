@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.spark.api.plugin.DriverPlugin {
+    static String DEFAULT_SUBMISSION_WEBSOCKET_URL = "wss://api.spotinst.io/ocean/spark/cluster/%s/app/%s/connect/?accountId=%s";
     static Logger logger = LoggerFactory.getLogger(SparkConnectWebsocketTranscodeDriverPlugin.class);
     ExecutorService transcodeThreads;
     List<Integer> ports = Collections.emptyList();
@@ -51,6 +52,10 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     }
 
     void servePort(int port) {
+        servePort(port, 2);
+    }
+
+    void servePort(int port, int version) {
         System.err.println("Starting server on port " + port);
         try (var serverSocket = new ServerSocket(port)) {
             var running = true;
@@ -61,7 +66,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
                 transcodeThreads.submit(() -> {
                     try (socket) {
                         var bb = ByteBuffer.allocate(1024 * 1024);
-                        bb.putInt(port);
+                        if (version==2) bb.putInt(port);
                         int offset = 4;
                         var output = socket.getOutputStream();
                         var input = socket.getInputStream();
@@ -106,11 +111,11 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
         }
     }
 
-    void startTranscodeServers() {
+    void startTranscodeServers(int version) {
         logger.info("Starting code submission server");
         boolean fetchPorts = false;
         for (int port : ports) {
-            transcodeThreads.submit(() -> servePort(port));
+            transcodeThreads.submit(() -> servePort(port, version));
             fetchPorts = fetchPorts | port == 10000;
         }
         if (fetchPorts) {
@@ -153,12 +158,24 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
             ports = Arrays.stream(sc.getConf().get("spark.code.submission.ports", "15002").split(";")).mapToInt(Integer::parseInt).boxed().collect(Collectors.toList());
         }
         if (urlstr == null) {
-            urlstr = sc.getConf().get("spark.code.submission.url", "ws://localhost:9000");
+            var fallbackUrl = "ws://localhost:9000";
+            var accountId = sc.getConf().get("spark.code.submission.accountId");
+            if (accountId != null && !accountId.isEmpty()) {
+                var clusterId = sc.getConf().get("spark.code.submission.clusterId");
+                var appId = sc.getConf().get("spark.code.submission.appId");
+                fallbackUrl = String.format(DEFAULT_SUBMISSION_WEBSOCKET_URL, clusterId, appId, accountId);
+            }
+            urlstr = sc.getConf().get("spark.code.submission.url", fallbackUrl);
         }
         if (headers == null) {
             headers = initHeaders(sc.getConf().get("spark.code.submission.headers", ""));
         }
-        startTranscodeServers();
+        var token = sc.getConf().get("spark.code.submission.token");
+        if (token != null && !token.isEmpty()) {
+            headers.put("Authorization", "Bearer "+token);
+        }
+        var version = Integer.parseInt(sc.getConf().get("spark.code.submission.version", "2"));
+        startTranscodeServers(version);
         return Collections.emptyMap();
     }
 
@@ -172,6 +189,6 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
         var url = args[1];
         var auth = args.length > 2 ? args[2] : "";
         var plugin = new SparkConnectWebsocketTranscodeDriverPlugin(ports, url, auth);
-        plugin.startTranscodeServers();
+        plugin.startTranscodeServers(2);
     }
 }

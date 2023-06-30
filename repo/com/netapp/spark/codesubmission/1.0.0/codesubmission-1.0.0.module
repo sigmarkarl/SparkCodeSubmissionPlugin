@@ -27,11 +27,11 @@
         {
           "name": "codesubmission-1.0.0.jar",
           "url": "codesubmission-1.0.0.jar",
-          "size": 73766,
-          "sha512": "4043439ba753f1f871e89f9cbbd530a240b312a23ff399e9ed46605491c955ecb7e39580c09024a40e9716dbbcfaf7d33e2dad70d0b7b37ee3d5b2c73b7c47a0",
-          "sha256": "8c51fe20c9b2d76b411337613243727f73878077ee63677491b145ae812044f6",
-          "sha1": "2dd0225f8c56cb51345f06d4b5841014089cdd2b",
-          "md5": "06a8287dbc1b5cfd19b6f9954da0745e"
+          "size": 74321,
+          "sha512": "25ae898de0c09323352002d872b39effc3ce08766c0d1f1c502393315a340c4f7fdd0fee411c84788e21374a9eb95116f8982ddf551471ffd58b92a1e8e4f7df",
+          "sha256": "0221f42f557f571fb5294ba19dbf83977724e19e3de11c6759fd43cfe3ae3a65",
+          "sha1": "cd5c6d845c2045f56761edbb56c7802395a5a745",
+          "md5": "1bd88386f44ed490a0d62d597d1290f6"
         }
       ]
     },
@@ -49,42 +49,77 @@
           "group": "org.apache.spark",
           "module": "spark-core_2.12",
           "version": {
-            "requires": "3.4.0"
+            "requires": "3.4.1"
           }
         },
         {
           "group": "org.apache.spark",
           "module": "spark-connect_2.12",
           "version": {
-            "requires": "3.4.0"
+            "requires": "3.4.1"
           }
         },
         {
           "group": "org.apache.spark",
           "module": "spark-sql_2.12",
           "version": {
-            "requires": "3.4.0"
+            "requires": "3.4.1"
           }
         },
         {
           "group": "org.apache.spark",
           "module": "spark-repl_2.12",
           "version": {
-            "requires": "3.4.0"
+            "requires": "3.4.1"
           }
         },
         {
           "group": "org.apache.spark",
           "module": "spark-hive_2.12",
           "version": {
-            "requires": "3.4.0"
+            "requires": "3.4.1"
           }
         },
         {
           "group": "org.apache.spark",
           "module": "spark-hive-thriftserver_2.12",
           "version": {
-            "requires": "3.4.0"
+            "requires": "3.4.1"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "flight-sql",
+          "version": {
+            "requires": "12.0.1"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "flight-sql-jdbc-core",
+          "version": {
+            "requires": "12.0.1"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "flight-core",
+          "version": {
+            "requires": "12.0.1"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "arrow-flight",
+          "version": {
+            "requires": "12.0.1"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "arrow-jdbc",
+          "version": {
+            "requires": "12.0.1"
           }
         },
         {
@@ -126,7 +161,7 @@
           "group": "io.fabric8",
           "module": "kubernetes-client",
           "version": {
-            "requires": "6.7.1"
+            "requires": "6.7.2"
           }
         },
         {
@@ -141,11 +176,11 @@
         {
           "name": "codesubmission-1.0.0.jar",
           "url": "codesubmission-1.0.0.jar",
-          "size": 73766,
-          "sha512": "4043439ba753f1f871e89f9cbbd530a240b312a23ff399e9ed46605491c955ecb7e39580c09024a40e9716dbbcfaf7d33e2dad70d0b7b37ee3d5b2c73b7c47a0",
-          "sha256": "8c51fe20c9b2d76b411337613243727f73878077ee63677491b145ae812044f6",
-          "sha1": "2dd0225f8c56cb51345f06d4b5841014089cdd2b",
-          "md5": "06a8287dbc1b5cfd19b6f9954da0745e"
+          "size": 74321,
+          "sha512": "25ae898de0c09323352002d872b39effc3ce08766c0d1f1c502393315a340c4f7fdd0fee411c84788e21374a9eb95116f8982ddf551471ffd58b92a1e8e4f7df",
+          "sha256": "0221f42f557f571fb5294ba19dbf83977724e19e3de11c6759fd43cfe3ae3a65",
+          "sha1": "cd5c6d845c2045f56761edbb56c7802395a5a745",
+          "md5": "1bd88386f44ed490a0d62d597d1290f6"
         }
       ]
     }
