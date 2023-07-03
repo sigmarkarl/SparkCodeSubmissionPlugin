@@ -7,14 +7,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.ServerSocket;
-import java.net.SocketException;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -66,8 +64,11 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
                 transcodeThreads.submit(() -> {
                     try (socket) {
                         var bb = ByteBuffer.allocate(1024 * 1024);
-                        if (version==2) bb.putInt(port);
-                        int offset = 4;
+                        int offset = 0;
+                        if (version==2) {
+                            bb.putInt(port);
+                            offset = 4;
+                        }
                         var output = socket.getOutputStream();
                         var input = socket.getInputStream();
                         var channel = Channels.newChannel(output);
