@@ -21,7 +21,8 @@ public class NotebookInitContainer {
                 Files.copy(is, path);
                 Files.copy(isold, path_old);
                 Files.copy(iseg322, path_eg322);
-                Files.copy(jarsDir.resolve("toree.jar"), libDir.resolve("toree.jar"));
+                var toreePath = jarsDir.resolve("toree.jar");
+                if (Files.exists(toreePath)) Files.copy(toreePath, libDir.resolve("toree.jar"));
                 System.err.println("launch_ipykernel.py written to " + path);
             } else {
                 System.err.println("launch_ipykernel.py not found");

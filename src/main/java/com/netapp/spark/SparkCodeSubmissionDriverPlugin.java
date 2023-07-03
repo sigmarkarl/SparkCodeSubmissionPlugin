@@ -3,10 +3,8 @@ package com.netapp.spark;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
-import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.undertow.Undertow;
 
 import io.kubernetes.client.openapi.ApiException;
@@ -19,6 +17,9 @@ import io.undertow.util.Headers;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
 import launcher.ToreeLauncher;
+import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.Location;
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -648,7 +649,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                 var hivePort = Integer.parseInt((hivePortStr == null || hivePortStr.isEmpty()) ? "10000" : hivePortStr);
     }*/
 
-    void initConnections(SparkSession sparkSession, boolean useHive, List<Row> connectInfo) {
+    void initConnections(SparkSession sparkSession, boolean useHive, boolean useFlight, List<Row> connectInfo) throws IOException {
         if (useHive) {
             var hiveThriftServer = new HiveThriftServer2(sparkSession.sqlContext());
             var hiveEventManager = new HiveThriftServer2EventManager(sparkSession.sparkContext());
@@ -656,6 +657,15 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             var hiveConf = new HiveConf();
             hiveThriftServer.init(hiveConf);
             hiveThriftServer.start();
+        }
+
+        if (useFlight) {
+            var location = Location.forGrpcInsecure("0.0.0.0", 33333);
+            var allocator = new RootAllocator();
+            var flightServer = FlightServer.builder(allocator, location, new SparkSQLProducer(sparkSession)).build();
+            flightServer.start();
+            System.out.println("S1: Server (Location): Listening on port " + flightServer.getPort());
+            //flightServer.awaitTermination();
         }
 
         var df = sparkSession.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("type string, port int, secret string")));
@@ -695,6 +705,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             var useCodeServer = sc.conf().get("spark.code.server.port", "");
             var useJupyterServer = sc.conf().get("spark.code.jupyter.port", "");
             var useHive = sc.conf().get("spark.code.submission.hive", "true");
+            var useFlight = sc.conf().get("spark.code.submission.flight", "true");
             if (useSparkConnect.equalsIgnoreCase("true")) SparkConnectService.start();
 
             var connectInfo = new ArrayList<Row>();
@@ -745,11 +756,11 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             if (useCodeTunnel.equalsIgnoreCase("true")) startCodeTunnel(workDir);
 
             if (sparkSession != null) {
-                initConnections(sparkSession, useHive.equalsIgnoreCase("true"), connectInfo);
+                initConnections(sparkSession, useHive.equalsIgnoreCase("true"), useFlight.equalsIgnoreCase("true"), connectInfo);
             } else {
                 var session = SparkSession.getDefaultSession();
                 if (session.isDefined()) {
-                    initConnections(session.get(), useHive.equalsIgnoreCase("true"), connectInfo);
+                    initConnections(session.get(), useHive.equalsIgnoreCase("true"), useFlight.equalsIgnoreCase("true"), connectInfo);
                 } else {
                     virtualThreads.submit(() -> {
                         var inSession = session;
@@ -762,7 +773,13 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                             }
                             inSession = SparkSession.getDefaultSession();
                         }
-                        if (!done) initConnections(inSession.get(), useHive.equalsIgnoreCase("true"), connectInfo);
+                        if (!done) {
+                            try {
+                                initConnections(inSession.get(), useHive.equalsIgnoreCase("true"), useFlight.equalsIgnoreCase("true"), connectInfo);
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
                     });
                 }
             }

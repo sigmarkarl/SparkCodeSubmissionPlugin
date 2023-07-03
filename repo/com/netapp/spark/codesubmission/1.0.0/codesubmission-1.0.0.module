@@ -27,11 +27,11 @@
         {
           "name": "codesubmission-1.0.0.jar",
           "url": "codesubmission-1.0.0.jar",
-          "size": 74321,
-          "sha512": "25ae898de0c09323352002d872b39effc3ce08766c0d1f1c502393315a340c4f7fdd0fee411c84788e21374a9eb95116f8982ddf551471ffd58b92a1e8e4f7df",
-          "sha256": "0221f42f557f571fb5294ba19dbf83977724e19e3de11c6759fd43cfe3ae3a65",
-          "sha1": "cd5c6d845c2045f56761edbb56c7802395a5a745",
-          "md5": "1bd88386f44ed490a0d62d597d1290f6"
+          "size": 79999,
+          "sha512": "6bba9904f899d12c98a49349fd806f9bd2476ecf9dee93fc5d092e739e68927e5d507613b0a64806b9c574c6404ab09d2e229f8adafa71f8161579d8f37da109",
+          "sha256": "3479bfc32733e5f6fa7e15a7744a468f11538b74a8df778571506bf553b70309",
+          "sha1": "a417c4d4769b85207c9ffcfb077e34013a788d81",
+          "md5": "f7eca7dc79bab2335ed817ca3f448ea1"
         }
       ]
     },
@@ -176,11 +176,11 @@
         {
           "name": "codesubmission-1.0.0.jar",
           "url": "codesubmission-1.0.0.jar",
-          "size": 74321,
-          "sha512": "25ae898de0c09323352002d872b39effc3ce08766c0d1f1c502393315a340c4f7fdd0fee411c84788e21374a9eb95116f8982ddf551471ffd58b92a1e8e4f7df",
-          "sha256": "0221f42f557f571fb5294ba19dbf83977724e19e3de11c6759fd43cfe3ae3a65",
-          "sha1": "cd5c6d845c2045f56761edbb56c7802395a5a745",
-          "md5": "1bd88386f44ed490a0d62d597d1290f6"
+          "size": 79999,
+          "sha512": "6bba9904f899d12c98a49349fd806f9bd2476ecf9dee93fc5d092e739e68927e5d507613b0a64806b9c574c6404ab09d2e229f8adafa71f8161579d8f37da109",
+          "sha256": "3479bfc32733e5f6fa7e15a7744a468f11538b74a8df778571506bf553b70309",
+          "sha1": "a417c4d4769b85207c9ffcfb077e34013a788d81",
+          "md5": "f7eca7dc79bab2335ed817ca3f448ea1"
         }
       ]
     }
