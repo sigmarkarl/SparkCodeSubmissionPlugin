@@ -20,7 +20,13 @@ public class SparkCodeSubmissionServer implements AutoCloseable {
     public SparkCodeSubmissionServer(String master) {
         if (master!=null) {
             if (!master.equalsIgnoreCase("none")) {
-                spark = SparkSession.builder().master(master).appName("SparkCodeSubmissionServer").enableHiveSupport().getOrCreate();
+                spark = SparkSession
+                        .builder()
+                        .master(master)
+                        //.config("spark.sql.catalogImplementation","hive")
+                        .appName("SparkCodeSubmissionServer")
+                        .enableHiveSupport()
+                        .getOrCreate();
             }
         } else {
             spark = SparkSession.builder().enableHiveSupport().getOrCreate();

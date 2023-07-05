@@ -53,6 +53,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -649,14 +650,25 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                 var hivePort = Integer.parseInt((hivePortStr == null || hivePortStr.isEmpty()) ? "10000" : hivePortStr);
     }*/
 
-    void initConnections(SparkSession sparkSession, boolean useHive, boolean useFlight, List<Row> connectInfo) throws IOException {
+    void initConnections(SparkSession sparkSession, boolean useHive, boolean useFlight, List<Row> connectInfo) throws IOException, SQLException {
         if (useHive) {
             var hiveThriftServer = new HiveThriftServer2(sparkSession.sqlContext());
             var hiveEventManager = new HiveThriftServer2EventManager(sparkSession.sparkContext());
             HiveThriftServer2.eventManager_$eq(hiveEventManager);
             var hiveConf = new HiveConf();
             hiveThriftServer.init(hiveConf);
+            //hiveThriftServer.startWithContext(sparkSession.sqlContext());
             hiveThriftServer.start();
+
+            /*var hivePort = hiveThriftServer.getHiveServer2Port();
+            var hivePortStr = System.getenv("HIVE_SERVER2_THRIFT_PORT");
+            if (hivePortStr == null || hivePortStr.isEmpty()) {
+                System.err.println("HIVE_SERVER2_THRIFT_PORT not set, using " + hivePort);
+                hivePortStr = Integer.toString(hivePort);
+            }
+            var hiveHost = System.getenv("HIVE_SERVER2_THRIFT_BIND_HOST");
+            if (hiveHost == null || hiveHost.isEmpty()) {
+                System.err.println("HIVE_SERVER2_THRIFT_BIND_HOST not set, using*/
         }
 
         if (useFlight) {
@@ -776,7 +788,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                         if (!done) {
                             try {
                                 initConnections(inSession.get(), useHive.equalsIgnoreCase("true"), useFlight.equalsIgnoreCase("true"), connectInfo);
-                            } catch (IOException e) {
+                            } catch (IOException | SQLException e) {
                                 throw new RuntimeException(e);
                             }
                         }
@@ -792,6 +804,9 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             logger.error("Unable to alter pyspark context code", e);
             throw new RuntimeException(e);
         } catch (GitAPIException e) {
+            throw new RuntimeException(e);
+        } catch (SQLException e) {
+            logger.error("SQLException", e);
             throw new RuntimeException(e);
         }
     }
