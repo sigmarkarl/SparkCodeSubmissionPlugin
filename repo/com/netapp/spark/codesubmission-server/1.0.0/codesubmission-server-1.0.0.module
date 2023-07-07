@@ -1,0 +1,188 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.netapp.spark",
+    "module": "codesubmission-server",
+    "version": "1.0.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.1.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "codesubmission-server-1.0.0.jar",
+          "url": "codesubmission-server-1.0.0.jar",
+          "size": 94441,
+          "sha512": "9d486951ecdd825df2b98e5377f5feb8aeb1da71cd92b1e30424e893cbeb7f957bf61a2c7736a4244bd8101196a73f8111a3a591c6b50caf84acbb2e83d19776",
+          "sha256": "c3fa8659d01a9719395f9b0c9d8bdd4b53ba8fba0b5f2f5da4a76e7cc682271f",
+          "sha1": "63cb5ddd528275975a55db240bbc440a724e4a16",
+          "md5": "800c56dc4073ca02e29f57e197439a4c"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.apache.spark",
+          "module": "spark-core_2.12",
+          "version": {
+            "requires": "3.4.1"
+          }
+        },
+        {
+          "group": "org.apache.spark",
+          "module": "spark-connect_2.12",
+          "version": {
+            "requires": "3.4.1"
+          }
+        },
+        {
+          "group": "org.apache.spark",
+          "module": "spark-sql_2.12",
+          "version": {
+            "requires": "3.4.1"
+          }
+        },
+        {
+          "group": "org.apache.spark",
+          "module": "spark-repl_2.12",
+          "version": {
+            "requires": "3.4.1"
+          }
+        },
+        {
+          "group": "org.apache.spark",
+          "module": "spark-hive_2.12",
+          "version": {
+            "requires": "3.4.1"
+          }
+        },
+        {
+          "group": "org.apache.spark",
+          "module": "spark-hive-thriftserver_2.12",
+          "version": {
+            "requires": "3.4.1"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "flight-sql",
+          "version": {
+            "requires": "12.0.1"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "flight-sql-jdbc-core",
+          "version": {
+            "requires": "12.0.1"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "flight-core",
+          "version": {
+            "requires": "12.0.1"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "arrow-flight",
+          "version": {
+            "requires": "12.0.1"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "arrow-jdbc",
+          "version": {
+            "requires": "12.0.1"
+          }
+        },
+        {
+          "group": "io.undertow",
+          "module": "undertow-core",
+          "version": {
+            "requires": "2.3.5.Final"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-databind",
+          "version": {
+            "requires": "2.14.2"
+          }
+        },
+        {
+          "group": "org.apache.commons",
+          "module": "commons-compress",
+          "version": {
+            "requires": "1.23.0"
+          }
+        },
+        {
+          "group": "io.kubernetes",
+          "module": "client-java",
+          "version": {
+            "requires": "18.0.0"
+          }
+        },
+        {
+          "group": "com.google.code.gson",
+          "module": "gson",
+          "version": {
+            "requires": "2.10.1"
+          }
+        },
+        {
+          "group": "io.fabric8",
+          "module": "kubernetes-client",
+          "version": {
+            "requires": "6.7.2"
+          }
+        },
+        {
+          "group": "org.eclipse.jgit",
+          "module": "org.eclipse.jgit",
+          "version": {
+            "requires": "6.6.0.202305301015-r"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "codesubmission-server-1.0.0.jar",
+          "url": "codesubmission-server-1.0.0.jar",
+          "size": 94441,
+          "sha512": "9d486951ecdd825df2b98e5377f5feb8aeb1da71cd92b1e30424e893cbeb7f957bf61a2c7736a4244bd8101196a73f8111a3a591c6b50caf84acbb2e83d19776",
+          "sha256": "c3fa8659d01a9719395f9b0c9d8bdd4b53ba8fba0b5f2f5da4a76e7cc682271f",
+          "sha1": "63cb5ddd528275975a55db240bbc440a724e4a16",
+          "md5": "800c56dc4073ca02e29f57e197439a4c"
+        }
+      ]
+    }
+  ]
+}
