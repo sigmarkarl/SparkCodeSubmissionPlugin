@@ -488,6 +488,16 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         codeSubmissionServer.start();
     }
 
+    void startWebsockify(Path workDir) throws IOException, InterruptedException {
+        var installDir = workDir.resolve("websockify");
+        runProcess(List.of(
+                "install",
+                "--target",
+                installDir.toString(),
+                "websockify"), Map.of(), "pip", true, null).waitFor();
+
+    }
+
     public void untar(URL url, Path workDir, boolean gz) throws IOException {
         try (var gzip = gz ? new GZIPInputStream(url.openStream()) : new XZCompressorInputStream(url.openStream()); var tar = new TarArchiveInputStream(gzip)) {
             var entry = tar.getNextEntry();
@@ -718,6 +728,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             var useJupyterServer = sc.conf().get("spark.code.jupyter.port", "");
             var useHive = sc.conf().get("spark.code.submission.hive", "true");
             var useFlight = sc.conf().get("spark.code.submission.flight", "true");
+            var useWebsockify = sc.conf().get("spark.code.submission.websockify", "false");
             if (useSparkConnect.equalsIgnoreCase("true")) SparkConnectService.start();
 
             var connectInfo = new ArrayList<Row>();
@@ -796,7 +807,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                 }
             }
             //stuff();
-            startCodeSubmissionServer(sc);
+            if (useWebsockify.equalsIgnoreCase("true")) startWebsockify(workDir);
+            else startCodeSubmissionServer(sc);
         } catch (RuntimeException e) {
             logger.error("Failed to start code submission server at port: " + port, e);
             throw e;

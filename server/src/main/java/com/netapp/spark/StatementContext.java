@@ -22,6 +22,11 @@ public final class StatementContext<T extends Statement> implements AutoCloseabl
         this.query = query;
     }
 
+    public StatementContext(final String query) {
+        this.query = query;
+        this.statement = null;
+    }
+
     /**
      * Gets the statement wrapped by this {@link StatementContext}.
      *
@@ -42,6 +47,9 @@ public final class StatementContext<T extends Statement> implements AutoCloseabl
 
     @Override
     public void close() throws Exception {
+        if (statement == null) {
+            return;
+        }
         Connection connection = statement.getConnection();
         AutoCloseables.close(statement, connection);
     }

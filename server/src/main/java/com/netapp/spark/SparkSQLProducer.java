@@ -278,6 +278,10 @@ public class SparkSQLProducer implements FlightSqlProducer {
                         .setPreparedStatementHandle(preparedStatementHandle)
                         .build();
                 var res = new Result(pack(req).toByteArray());
+
+                final StatementContext<PreparedStatement> preparedStatementContext =
+                        new StatementContext<>(request.getQuery());
+                preparedStatementLoadingCache.put(preparedStatementHandle, preparedStatementContext);
                 listener.onNext(res);
                 listener.onCompleted();
             } else {
@@ -359,24 +363,28 @@ public class SparkSQLProducer implements FlightSqlProducer {
     @Override
     public FlightInfo getFlightInfoStatement(FlightSql.CommandStatementQuery command, CallContext context, FlightDescriptor descriptor) {
         var constr = getConnection(context);
+        ByteString handle = copyFrom(randomUUID().toString().getBytes(UTF_8));
         if (constr.contains("hive")) {
             var df = sparkSession.sql(command.getQuery());
+            datasets.put(handle.toStringUtf8(), df);
             var timeZoneId = DateTimeUtils.TimeZoneUTC().getID();
             var schema = ArrowUtils.toArrowSchema(df.schema(), timeZoneId);
             //var paths = descriptor.getPath();
             //var bytes = "sql".getBytes(); //paths.get(0).getBytes(StandardCharsets.UTF_8);
-            FlightEndpoint flightEndpoint = new FlightEndpoint(
+            /*FlightEndpoint flightEndpoint = new FlightEndpoint(
                     new Ticket(descriptor.getCommand()), location);
             return new FlightInfo(
                     schema,
                     descriptor,
                     Collections.singletonList(flightEndpoint),
-                    /*bytes=*/-1,
+                    /*bytes=*-1,
                     df.count()
-            );
+            );*/
+            FlightSql.TicketStatementQuery ticket = FlightSql.TicketStatementQuery.newBuilder()
+                    .setStatementHandle(handle)
+                    .build();
+            return getFlightInfoForSchema(ticket, descriptor, schema);
         } else {
-            ByteString handle = copyFrom(randomUUID().toString().getBytes(UTF_8));
-
             try {
                 // Ownership of the connection will be passed to the context. Do NOT close!
                 final Connection connection = DriverManager.getConnection(constr);
@@ -415,20 +423,21 @@ public class SparkSQLProducer implements FlightSqlProducer {
             var handle = command.getPreparedStatementHandle().toStringUtf8();
             var df = datasets.get(handle);
             var structType = df.schema();
-            var count = df.count();
+            //var count = df.count();
             var timeZoneId = DateTimeUtils.TimeZoneUTC().getID();
             var schema = ArrowUtils.toArrowSchema(structType, timeZoneId);
             //var paths = descriptor.getPath();
             //var bytes = "sql".getBytes(); //paths.get(0).getBytes(StandardCharsets.UTF_8);
-            FlightEndpoint flightEndpoint = new FlightEndpoint(
+            /*FlightEndpoint flightEndpoint = new FlightEndpoint(
                     new Ticket(descriptor.getCommand()), location);
             return new FlightInfo(
                     schema,
                     descriptor,
                     Collections.singletonList(flightEndpoint),
-                    /*bytes=*/-1,
+                    /*bytes=*-1,
                     count
-            );
+            );*/
+            return getFlightInfoForSchema(command, descriptor, schema);
         } else {
             final ByteString preparedStatementHandle = command.getPreparedStatementHandle();
             StatementContext<PreparedStatement> statementContext =
@@ -465,16 +474,12 @@ public class SparkSQLProducer implements FlightSqlProducer {
     }
 
     @Override
-    public void getStreamStatement(FlightSql.TicketStatementQuery ticket, CallContext context, ServerStreamListener listener) {
-
-    }
-
-    @Override
-    public void getStreamPreparedStatement(FlightSql.CommandPreparedStatementQuery command, CallContext context, ServerStreamListener listener) {
+    public void getStreamStatement(FlightSql.TicketStatementQuery ticketStatementQuery, CallContext context, ServerStreamListener listener) {
         var constr = getConnection(context);
+        final ByteString handle = ticketStatementQuery.getStatementHandle();
         if (constr.contains("hive")) {
-            var handle = command.getPreparedStatementHandle().toStringUtf8();
-            var df = datasets.get(handle);
+            var handleByteString = handle.toStringUtf8();
+            var df = datasets.get(handleByteString);
             var timeZoneId = DateTimeUtils.TimeZoneUTC().getID();
             var schema = ArrowUtils.toArrowSchema(df.schema(), timeZoneId);
             try (final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
@@ -490,10 +495,64 @@ public class SparkSQLProducer implements FlightSqlProducer {
                 }
             } catch (IOException e) {
                 throw new RuntimeException(e);
+            } finally {
+                listener.completed();
             }
-            listener.completed();
         } else {
-            final ByteString handle = command.getPreparedStatementHandle();
+            final StatementContext<Statement> statementContext =
+                    Objects.requireNonNull(statementLoadingCache.getIfPresent(handle));
+            try (final ResultSet resultSet = statementContext.getStatement().getResultSet()) {
+                final Schema schema = jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
+                try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
+                    final VectorLoader loader = new VectorLoader(vectorSchemaRoot);
+                    listener.start(vectorSchemaRoot);
+
+                    final ArrowVectorIterator iterator = sqlToArrowVectorIterator(resultSet, rootAllocator);
+                    while (iterator.hasNext()) {
+                        final VectorUnloader unloader = new VectorUnloader(iterator.next());
+                        loader.load(unloader.getRecordBatch());
+                        listener.putNext();
+                        vectorSchemaRoot.clear();
+                    }
+
+                    listener.putNext();
+                }
+            } catch (SQLException | IOException e) {
+                logger.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
+                listener.error(e);
+            } finally {
+                listener.completed();
+                statementLoadingCache.invalidate(handle);
+            }
+        }
+    }
+
+    @Override
+    public void getStreamPreparedStatement(FlightSql.CommandPreparedStatementQuery command, CallContext context, ServerStreamListener listener) {
+        var constr = getConnection(context);
+        final ByteString handle = command.getPreparedStatementHandle();
+        if (constr.contains("hive")) {
+            var handleByteString = handle.toStringUtf8();
+            var df = datasets.get(handleByteString);
+            var timeZoneId = DateTimeUtils.TimeZoneUTC().getID();
+            var schema = ArrowUtils.toArrowSchema(df.schema(), timeZoneId);
+            try (final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
+                final VectorLoader loader = new VectorLoader(vectorSchemaRoot);
+                listener.start(vectorSchemaRoot);
+                var it = JavaConverters.asJavaIterator(df.toArrowBatchRdd().toLocalIterator());
+                while (it.hasNext()) {
+                    var arrowBatchBytes = it.next();
+                    var in = new ByteArrayInputStream(arrowBatchBytes);
+                    var arrowRecordBatch = MessageSerializer.deserializeRecordBatch(new ReadChannel(Channels.newChannel(in)), rootAllocator);
+                    loader.load(arrowRecordBatch);
+                    listener.putNext();
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } finally {
+                listener.completed();
+            }
+        } else {
             StatementContext<PreparedStatement> statementContext = preparedStatementLoadingCache.getIfPresent(handle);
             Objects.requireNonNull(statementContext);
             final PreparedStatement statement = statementContext.getStatement();
@@ -567,33 +626,74 @@ public class SparkSQLProducer implements FlightSqlProducer {
 
     @Override
     public FlightInfo getFlightInfoTypeInfo(FlightSql.CommandGetXdbcTypeInfo request, CallContext context, FlightDescriptor descriptor) {
-        return null;
+        return getFlightInfoForSchema(request, descriptor, Schemas.GET_TYPE_INFO_SCHEMA);
+    }
+
+    private static VectorSchemaRoot getTypeInfoRoot(FlightSql.CommandGetXdbcTypeInfo request, ResultSet typeInfo,
+                                                    final BufferAllocator allocator)
+            throws SQLException {
+        Preconditions.checkNotNull(allocator, "BufferAllocator cannot be null.");
+
+        VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TYPE_INFO_SCHEMA, allocator);
+
+        Map<FieldVector, String> mapper = new HashMap<>();
+        mapper.put(root.getVector("type_name"), "TYPE_NAME");
+        mapper.put(root.getVector("data_type"), "DATA_TYPE");
+        mapper.put(root.getVector("column_size"), "PRECISION");
+        mapper.put(root.getVector("literal_prefix"), "LITERAL_PREFIX");
+        mapper.put(root.getVector("literal_suffix"), "LITERAL_SUFFIX");
+        mapper.put(root.getVector("create_params"), "CREATE_PARAMS");
+        mapper.put(root.getVector("nullable"), "NULLABLE");
+        mapper.put(root.getVector("case_sensitive"), "CASE_SENSITIVE");
+        mapper.put(root.getVector("searchable"), "SEARCHABLE");
+        mapper.put(root.getVector("unsigned_attribute"), "UNSIGNED_ATTRIBUTE");
+        mapper.put(root.getVector("fixed_prec_scale"), "FIXED_PREC_SCALE");
+        mapper.put(root.getVector("auto_increment"), "AUTO_INCREMENT");
+        mapper.put(root.getVector("local_type_name"), "LOCAL_TYPE_NAME");
+        mapper.put(root.getVector("minimum_scale"), "MINIMUM_SCALE");
+        mapper.put(root.getVector("maximum_scale"), "MAXIMUM_SCALE");
+        mapper.put(root.getVector("sql_data_type"), "SQL_DATA_TYPE");
+        mapper.put(root.getVector("datetime_subcode"), "SQL_DATETIME_SUB");
+        mapper.put(root.getVector("num_prec_radix"), "NUM_PREC_RADIX");
+
+        Predicate<ResultSet> predicate;
+        if (request.hasDataType()) {
+            predicate = (resultSet) -> {
+                try {
+                    return resultSet.getInt("DATA_TYPE") == request.getDataType();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            };
+        } else {
+            predicate = (resultSet -> true);
+        }
+
+        int rows = saveToVectors(mapper, typeInfo, true, predicate);
+
+        root.setRowCount(rows);
+        return root;
     }
 
     @Override
     public void getStreamTypeInfo(FlightSql.CommandGetXdbcTypeInfo request, CallContext context, ServerStreamListener listener) {
-
+        var constr = getConnection(context);
+        try (final Connection connection = DriverManager.getConnection(constr);
+             final ResultSet typeInfo = connection.getMetaData().getTypeInfo();
+             final VectorSchemaRoot vectorSchemaRoot = getTypeInfoRoot(request, typeInfo, rootAllocator)) {
+            listener.start(vectorSchemaRoot);
+            listener.putNext();
+        } catch (SQLException e) {
+            logger.error(format("Failed to getStreamCatalogs: <%s>.", e.getMessage()), e);
+            listener.error(e);
+        } finally {
+            listener.completed();
+        }
     }
 
     @Override
     public FlightInfo getFlightInfoCatalogs(FlightSql.CommandGetCatalogs request, CallContext context, FlightDescriptor descriptor) {
         return getFlightInfoForSchema(request, descriptor, Schemas.GET_CATALOGS_SCHEMA);
-    }
-
-    private static VectorSchemaRoot getCatalogsRoot(final ResultSet data, final BufferAllocator allocator)
-            throws SQLException {
-        return getRoot(data, allocator, "catalog_name", "TABLE_CATALOG");
-    }
-
-    private static VectorSchemaRoot getRoot(final ResultSet data, final BufferAllocator allocator,
-                                            final String fieldVectorName, final String columnName)
-            throws SQLException {
-        final VarCharVector dataVector =
-                new VarCharVector(fieldVectorName, FieldType.notNullable(Types.MinorType.VARCHAR.getType()), allocator);
-        saveToVectors(ImmutableMap.of(dataVector, columnName), data);
-        final int rows = dataVector.getValueCount();
-        dataVector.setValueCount(rows);
-        return new VectorSchemaRoot(singletonList(dataVector));
     }
 
     String getConnection(CallContext context) {
@@ -869,8 +969,8 @@ public class SparkSQLProducer implements FlightSqlProducer {
                         final boolean isNullable = columnsData.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls;
                         final int precision = columnsData.getInt("COLUMN_SIZE");
                         final int scale = columnsData.getInt("DECIMAL_DIGITS");
-                        boolean isAutoIncrement =
-                                Objects.equals(columnsData.getString("IS_AUTOINCREMENT"), "YES");
+                        boolean isAutoIncrement = false;
+                                //Objects.equals(columnsData.getString("IS_AUTOINCREMENT"), "YES");
 
                         final List<Field> fields = tableToFields.computeIfAbsent(tableName, tableName_ -> new ArrayList<>());
 
@@ -944,52 +1044,212 @@ public class SparkSQLProducer implements FlightSqlProducer {
 
     @Override
     public FlightInfo getFlightInfoTableTypes(FlightSql.CommandGetTableTypes request, CallContext context, FlightDescriptor descriptor) {
-        return null;
+        return getFlightInfoForSchema(request, descriptor, Schemas.GET_TABLE_TYPES_SCHEMA);
+    }
+
+    private static VectorSchemaRoot getTableTypesRoot(final ResultSet data, final BufferAllocator allocator)
+            throws SQLException {
+        return getRoot(data, allocator, "table_type", "TABLE_TYPE");
+    }
+
+    private static VectorSchemaRoot getCatalogsRoot(final ResultSet data, final BufferAllocator allocator)
+            throws SQLException {
+        return getRoot(data, allocator, "catalog_name", "TABLE_CATALOG");
+    }
+
+    private static VectorSchemaRoot getRoot(final ResultSet data, final BufferAllocator allocator,
+                                            final String fieldVectorName, final String columnName)
+            throws SQLException {
+        final VarCharVector dataVector =
+                new VarCharVector(fieldVectorName, FieldType.notNullable(Types.MinorType.VARCHAR.getType()), allocator);
+        saveToVectors(ImmutableMap.of(dataVector, columnName), data);
+        final int rows = dataVector.getValueCount();
+        dataVector.setValueCount(rows);
+        return new VectorSchemaRoot(singletonList(dataVector));
     }
 
     @Override
     public void getStreamTableTypes(CallContext context, ServerStreamListener listener) {
-
+        var constr = getConnection(context);
+        try (final Connection connection = DriverManager.getConnection(constr);
+             final ResultSet tableTypes = connection.getMetaData().getTableTypes();
+             final VectorSchemaRoot vectorSchemaRoot = getTableTypesRoot(tableTypes, rootAllocator)) {
+            listener.start(vectorSchemaRoot);
+            listener.putNext();
+        } catch (SQLException e) {
+            logger.error(format("Failed to getStreamTableTypes: <%s>.", e.getMessage()), e);
+            listener.error(e);
+        } finally {
+            listener.completed();
+        }
     }
 
     @Override
     public FlightInfo getFlightInfoPrimaryKeys(FlightSql.CommandGetPrimaryKeys request, CallContext context, FlightDescriptor descriptor) {
-        return null;
+        return getFlightInfoForSchema(request, descriptor, Schemas.GET_PRIMARY_KEYS_SCHEMA);
     }
 
     @Override
     public void getStreamPrimaryKeys(FlightSql.CommandGetPrimaryKeys command, CallContext context, ServerStreamListener listener) {
+        final String catalog = command.hasCatalog() ? command.getCatalog() : null;
+        final String schema = command.hasDbSchema() ? command.getDbSchema() : null;
+        final String table = command.getTable();
 
+        try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
+            final ResultSet primaryKeys = connection.getMetaData().getPrimaryKeys(catalog, schema, table);
+
+            final VarCharVector catalogNameVector = new VarCharVector("catalog_name", rootAllocator);
+            final VarCharVector schemaNameVector = new VarCharVector("db_schema_name", rootAllocator);
+            final VarCharVector tableNameVector = new VarCharVector("table_name", rootAllocator);
+            final VarCharVector columnNameVector = new VarCharVector("column_name", rootAllocator);
+            final IntVector keySequenceVector = new IntVector("key_sequence", rootAllocator);
+            final VarCharVector keyNameVector = new VarCharVector("key_name", rootAllocator);
+
+            final List<FieldVector> vectors =
+                    new ArrayList<>(
+                            ImmutableList.of(
+                                    catalogNameVector, schemaNameVector, tableNameVector, columnNameVector, keySequenceVector,
+                                    keyNameVector));
+            vectors.forEach(FieldVector::allocateNew);
+
+            int rows = 0;
+            for (; primaryKeys.next(); rows++) {
+                saveToVector(primaryKeys.getString("TABLE_CAT"), catalogNameVector, rows);
+                saveToVector(primaryKeys.getString("TABLE_SCHEM"), schemaNameVector, rows);
+                saveToVector(primaryKeys.getString("TABLE_NAME"), tableNameVector, rows);
+                saveToVector(primaryKeys.getString("COLUMN_NAME"), columnNameVector, rows);
+                final int key_seq = primaryKeys.getInt("KEY_SEQ");
+                saveToVector(primaryKeys.wasNull() ? null : key_seq, keySequenceVector, rows);
+                saveToVector(primaryKeys.getString("PK_NAME"), keyNameVector, rows);
+            }
+
+            try (final VectorSchemaRoot vectorSchemaRoot = new VectorSchemaRoot(vectors)) {
+                vectorSchemaRoot.setRowCount(rows);
+
+                listener.start(vectorSchemaRoot);
+                listener.putNext();
+            }
+        } catch (SQLException e) {
+            listener.error(e);
+        } finally {
+            listener.completed();
+        }
     }
 
     @Override
     public FlightInfo getFlightInfoExportedKeys(FlightSql.CommandGetExportedKeys request, CallContext context, FlightDescriptor descriptor) {
-        return null;
+        return getFlightInfoForSchema(request, descriptor, Schemas.GET_EXPORTED_KEYS_SCHEMA);
     }
 
     @Override
     public FlightInfo getFlightInfoImportedKeys(FlightSql.CommandGetImportedKeys request, CallContext context, FlightDescriptor descriptor) {
-        return null;
+        return getFlightInfoForSchema(request, descriptor, Schemas.GET_IMPORTED_KEYS_SCHEMA);
     }
 
     @Override
     public FlightInfo getFlightInfoCrossReference(FlightSql.CommandGetCrossReference request, CallContext context, FlightDescriptor descriptor) {
-        return null;
+        return getFlightInfoForSchema(request, descriptor, Schemas.GET_CROSS_REFERENCE_SCHEMA);
+    }
+
+    private VectorSchemaRoot createVectors(ResultSet keys) throws SQLException {
+        final VarCharVector pkCatalogNameVector = new VarCharVector("pk_catalog_name", rootAllocator);
+        final VarCharVector pkSchemaNameVector = new VarCharVector("pk_db_schema_name", rootAllocator);
+        final VarCharVector pkTableNameVector = new VarCharVector("pk_table_name", rootAllocator);
+        final VarCharVector pkColumnNameVector = new VarCharVector("pk_column_name", rootAllocator);
+        final VarCharVector fkCatalogNameVector = new VarCharVector("fk_catalog_name", rootAllocator);
+        final VarCharVector fkSchemaNameVector = new VarCharVector("fk_db_schema_name", rootAllocator);
+        final VarCharVector fkTableNameVector = new VarCharVector("fk_table_name", rootAllocator);
+        final VarCharVector fkColumnNameVector = new VarCharVector("fk_column_name", rootAllocator);
+        final IntVector keySequenceVector = new IntVector("key_sequence", rootAllocator);
+        final VarCharVector fkKeyNameVector = new VarCharVector("fk_key_name", rootAllocator);
+        final VarCharVector pkKeyNameVector = new VarCharVector("pk_key_name", rootAllocator);
+        final UInt1Vector updateRuleVector = new UInt1Vector("update_rule", rootAllocator);
+        final UInt1Vector deleteRuleVector = new UInt1Vector("delete_rule", rootAllocator);
+
+        Map<FieldVector, String> vectorToColumnName = new HashMap<>();
+        vectorToColumnName.put(pkCatalogNameVector, "PKTABLE_CAT");
+        vectorToColumnName.put(pkSchemaNameVector, "PKTABLE_SCHEM");
+        vectorToColumnName.put(pkTableNameVector, "PKTABLE_NAME");
+        vectorToColumnName.put(pkColumnNameVector, "PKCOLUMN_NAME");
+        vectorToColumnName.put(fkCatalogNameVector, "FKTABLE_CAT");
+        vectorToColumnName.put(fkSchemaNameVector, "FKTABLE_SCHEM");
+        vectorToColumnName.put(fkTableNameVector, "FKTABLE_NAME");
+        vectorToColumnName.put(fkColumnNameVector, "FKCOLUMN_NAME");
+        vectorToColumnName.put(keySequenceVector, "KEY_SEQ");
+        vectorToColumnName.put(updateRuleVector, "UPDATE_RULE");
+        vectorToColumnName.put(deleteRuleVector, "DELETE_RULE");
+        vectorToColumnName.put(fkKeyNameVector, "FK_NAME");
+        vectorToColumnName.put(pkKeyNameVector, "PK_NAME");
+
+        final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.of(
+                pkCatalogNameVector, pkSchemaNameVector, pkTableNameVector, pkColumnNameVector, fkCatalogNameVector,
+                fkSchemaNameVector, fkTableNameVector, fkColumnNameVector, keySequenceVector, fkKeyNameVector,
+                pkKeyNameVector, updateRuleVector, deleteRuleVector);
+
+        vectorSchemaRoot.allocateNew();
+        final int rowCount = saveToVectors(vectorToColumnName, keys, true);
+
+        vectorSchemaRoot.setRowCount(rowCount);
+
+        return vectorSchemaRoot;
     }
 
     @Override
     public void getStreamExportedKeys(FlightSql.CommandGetExportedKeys command, CallContext context, ServerStreamListener listener) {
+        String catalog = command.hasCatalog() ? command.getCatalog() : null;
+        String schema = command.hasDbSchema() ? command.getDbSchema() : null;
+        String table = command.getTable();
 
+        try (Connection connection = DriverManager.getConnection(DATABASE_URI);
+             ResultSet keys = connection.getMetaData().getExportedKeys(catalog, schema, table);
+             VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
+            listener.start(vectorSchemaRoot);
+            listener.putNext();
+        } catch (SQLException e) {
+            listener.error(e);
+        } finally {
+            listener.completed();
+        }
     }
 
     @Override
     public void getStreamImportedKeys(FlightSql.CommandGetImportedKeys command, CallContext context, ServerStreamListener listener) {
+        String catalog = command.hasCatalog() ? command.getCatalog() : null;
+        String schema = command.hasDbSchema() ? command.getDbSchema() : null;
+        String table = command.getTable();
 
+        try (Connection connection = DriverManager.getConnection(DATABASE_URI);
+             ResultSet keys = connection.getMetaData().getImportedKeys(catalog, schema, table);
+             VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
+            listener.start(vectorSchemaRoot);
+            listener.putNext();
+        } catch (final SQLException e) {
+            listener.error(e);
+        } finally {
+            listener.completed();
+        }
     }
 
     @Override
     public void getStreamCrossReference(FlightSql.CommandGetCrossReference command, CallContext context, ServerStreamListener listener) {
+        final String pkCatalog = command.hasPkCatalog() ? command.getPkCatalog() : null;
+        final String pkSchema = command.hasPkDbSchema() ? command.getPkDbSchema() : null;
+        final String fkCatalog = command.hasFkCatalog() ? command.getFkCatalog() : null;
+        final String fkSchema = command.hasFkDbSchema() ? command.getFkDbSchema() : null;
+        final String pkTable = command.getPkTable();
+        final String fkTable = command.getFkTable();
 
+        try (Connection connection = DriverManager.getConnection(DATABASE_URI);
+             ResultSet keys = connection.getMetaData()
+                     .getCrossReference(pkCatalog, pkSchema, pkTable, fkCatalog, fkSchema, fkTable);
+             VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
+            listener.start(vectorSchemaRoot);
+            listener.putNext();
+        } catch (final SQLException e) {
+            listener.error(e);
+        } finally {
+            listener.completed();
+        }
     }
 
     @Override

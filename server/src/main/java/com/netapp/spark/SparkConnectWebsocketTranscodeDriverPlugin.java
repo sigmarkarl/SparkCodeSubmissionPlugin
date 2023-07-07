@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.spark.api.plugin.DriverPlugin {
-    static String DEFAULT_SUBMISSION_WEBSOCKET_URL = "wss://api.spotinst.io/ocean/spark/cluster/%s/app/%s/connect?accountId=%s";
+    static String DEFAULT_SUBMISSION_WEBSOCKET_URL = "wss://api.spotinst.io/ocean/spark/cluster/%s/app/%s/%s?accountId=%s";
     static Logger logger = LoggerFactory.getLogger(SparkConnectWebsocketTranscodeDriverPlugin.class);
     ExecutorService transcodeThreads;
     List<Integer> ports = Collections.emptyList();
@@ -156,7 +156,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     @Override
     public Map<String,String> init(SparkContext sc, PluginContext myContext) {
         if (ports.size() == 0) {
-            ports = Arrays.stream(sc.getConf().get("spark.code.submission.ports", "15002").split(";")).mapToInt(Integer::parseInt).boxed().collect(Collectors.toList());
+            ports = Arrays.stream(sc.getConf().get("spark.code.submission.ports", "15002").split(",")).mapToInt(Integer::parseInt).boxed().collect(Collectors.toList());
         }
         if (urlstr == null) {
             var fallbackUrl = "ws://localhost:9000";
@@ -164,7 +164,8 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
             if (accountId != null && !accountId.isEmpty()) {
                 var clusterId = sc.getConf().get("spark.code.submission.clusterId");
                 var appId = sc.getConf().get("spark.code.submission.appId");
-                fallbackUrl = String.format(DEFAULT_SUBMISSION_WEBSOCKET_URL, clusterId, appId, accountId);
+                var entryPoint = sc.getConf().get("spark.code.submission.entryPoint", "connect");
+                fallbackUrl = String.format(DEFAULT_SUBMISSION_WEBSOCKET_URL, clusterId, appId, entryPoint, accountId);
             }
             urlstr = sc.getConf().get("spark.code.submission.url", fallbackUrl);
         }

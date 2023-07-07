@@ -1,4 +1,6 @@
 rootProject.name = "SparkCodeSubmissionPlugin"
+rootProject.buildFileName = "build.gradle.kts"
+include(":client",":server")
 
 pluginManagement {
     repositories {
@@ -19,4 +21,5 @@ buildscript {
         classpath("com.google.cloud.tools:jib-native-image-extension-gradle:0.1.0")
     }
 }
-
+include("client")
+include("server")
