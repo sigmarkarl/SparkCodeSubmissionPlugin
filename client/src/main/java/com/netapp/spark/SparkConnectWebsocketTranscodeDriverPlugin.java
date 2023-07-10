@@ -58,9 +58,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
         try (var serverSocket = new ServerSocket(port)) {
             var running = true;
             while (running) {
-                System.err.println("Waiting for connection on port " + port);
                 var socket = serverSocket.accept();
-                System.err.println("Got connection on port " + port);
                 transcodeThreads.submit(() -> {
                     try (socket) {
                         var bb = ByteBuffer.allocate(1024 * 1024);
