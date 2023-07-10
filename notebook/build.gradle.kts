@@ -38,6 +38,61 @@ publishing {
     }
 }
 
+var theJvmArgs = listOf(
+    "--enable-preview",
+    /*"--add-opens=java.base/java.util.regex=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    "--add-opens=java.base/java.time=ALL-UNNAMED",
+    "--add-opens=java.base/java.util.stream=ALL-UNNAMED",
+    "--add-opens=java.base/java.nio.charset=ALL-UNNAMED",
+    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.io=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+    "--add-opens=java.base/sun.security.action=ALL-UNNAMED"*/
+)
+
+jib {
+    from {
+        image = "openjdk:21-jdk"
+        //image = "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission:baseimage-1.0.0"
+        //version = "baseimage-1.0.0"
+        platforms {
+            platform {
+                architecture = "amd64"
+                os = "linux"
+            }
+            /*platform {
+                architecture = "arm64"
+                os = "linux"
+            }*/
+        }
+        if (project.hasProperty("REGISTRY_USER")) {
+            auth {
+                username = project.findProperty("REGISTRY_USER")?.toString()
+                password = project.findProperty("REGISTRY_PASSWORD")?.toString()
+            }
+        }
+    }
+    to {
+        image = project.findProperty("APPLICATION_REPOSITORY")?.toString() ?: "public.ecr.aws/l8m2k1n1/netapp/spark/notebookinit:1.0.0"
+        //version = "1.0.0"
+        //tags = [project.findProperty("APPLICATION_TAG")?.toString() ?: "1.0"]
+        if (project.hasProperty("REGISTRY_USER")) {
+            val reg_user = project.findProperty("REGISTRY_USER")?.toString()
+            val reg_pass = project.findProperty("REGISTRY_PASSWORD")?.toString()
+            auth {
+                username = reg_user
+                password = reg_pass
+            }
+        }
+    }
+    //containerizingMode = "packaged"
+    container {
+        mainClass = "com.netapp.spark.NotebookInitContainer"
+        jvmFlags = theJvmArgs
+    }
+}
+
 repositories {
     mavenCentral()
 }
