@@ -28,10 +28,10 @@
           "name": "codesubmission-client-1.0.0.jar",
           "url": "codesubmission-client-1.0.0.jar",
           "size": 10147,
-          "sha512": "6ad81e4d01b9c41faf094ee49ec9563ad240bb2bcca1c873d1f1f302aebbe095fc39450531a588d515194cf89d3a2c91b2b95c4ef859591f551916a9462cf2a6",
-          "sha256": "7ee46178cfb6bf32ba91a870e4b01492bff3054ded69abaef0c504317692d2f0",
-          "sha1": "4253d7ddce685b52a0003e13887b4820dec47967",
-          "md5": "086f40b87aadf8a51b263b58d8b91d5c"
+          "sha512": "6b4251807122a0944bc33e52e4c4d9a5cc6675af33a6e9d69eca2745a9964f51d859a72ae09bbfa2d308cb15cb650f20191ef733a65b26398e254504aaefa2f8",
+          "sha256": "f0929878dc40d43910ed976d0d116f5b9ebd72dd862fc6b2c107a937295572e8",
+          "sha1": "9d622c9190b6b9560d7557fcb81093f02627e261",
+          "md5": "645654655828b64e8214e53de2cffd18"
         }
       ]
     },
@@ -58,10 +58,10 @@
           "name": "codesubmission-client-1.0.0.jar",
           "url": "codesubmission-client-1.0.0.jar",
           "size": 10147,
-          "sha512": "6ad81e4d01b9c41faf094ee49ec9563ad240bb2bcca1c873d1f1f302aebbe095fc39450531a588d515194cf89d3a2c91b2b95c4ef859591f551916a9462cf2a6",
-          "sha256": "7ee46178cfb6bf32ba91a870e4b01492bff3054ded69abaef0c504317692d2f0",
-          "sha1": "4253d7ddce685b52a0003e13887b4820dec47967",
-          "md5": "086f40b87aadf8a51b263b58d8b91d5c"
+          "sha512": "6b4251807122a0944bc33e52e4c4d9a5cc6675af33a6e9d69eca2745a9964f51d859a72ae09bbfa2d308cb15cb650f20191ef733a65b26398e254504aaefa2f8",
+          "sha256": "f0929878dc40d43910ed976d0d116f5b9ebd72dd862fc6b2c107a937295572e8",
+          "sha1": "9d622c9190b6b9560d7557fcb81093f02627e261",
+          "md5": "645654655828b64e8214e53de2cffd18"
         }
       ]
     }

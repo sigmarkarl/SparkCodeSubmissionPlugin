@@ -133,7 +133,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             secret = py4jServer.secret();
             py4jServer.start();
 
-            portMap.put(pyport+10, pyport);
+            portMap.put(9441, pyport);
 
             Map<String, String> sysenv = System.getenv();
             Field field = sysenv.getClass().getDeclaredField("m");
@@ -154,7 +154,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         rbackendPort = (Integer) tuple._1;
         rbackendSecret = tuple._2.secret();
 
-        portMap.put(rbackendPort+10, rbackendPort);
+        portMap.put(9602, rbackendPort);
 
         virtualThreads.submit(() -> {
             try {
