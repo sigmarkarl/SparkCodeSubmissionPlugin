@@ -19,7 +19,7 @@
       "attributes": {
         "org.gradle.category": "library",
         "org.gradle.dependency.bundling": "external",
-        "org.gradle.jvm.version": 20,
+        "org.gradle.jvm.version": 11,
         "org.gradle.libraryelements": "jar",
         "org.gradle.usage": "java-api"
       },
@@ -27,11 +27,11 @@
         {
           "name": "codesubmission-client-1.0.0.jar",
           "url": "codesubmission-client-1.0.0.jar",
-          "size": 10287,
-          "sha512": "822f9e666853352bc5be1d8ce4a7785552eed831efcfd088c8c7e71ea9f651499452dc1732cbba21b6b389756816f4f7d1c64157379a710e74160e2f7bdb7281",
-          "sha256": "210138d4bdc2d1dcb1b14a7b28ef474b52c4f3d564ce6b6d1a80fd7046a48d4f",
-          "sha1": "a84a877d07100ed9aedcc3716a93c7af859aacbb",
-          "md5": "e2ba13cba183b989df5b2b5739dd75a9"
+          "size": 10147,
+          "sha512": "6ad81e4d01b9c41faf094ee49ec9563ad240bb2bcca1c873d1f1f302aebbe095fc39450531a588d515194cf89d3a2c91b2b95c4ef859591f551916a9462cf2a6",
+          "sha256": "7ee46178cfb6bf32ba91a870e4b01492bff3054ded69abaef0c504317692d2f0",
+          "sha1": "4253d7ddce685b52a0003e13887b4820dec47967",
+          "md5": "086f40b87aadf8a51b263b58d8b91d5c"
         }
       ]
     },
@@ -40,7 +40,7 @@
       "attributes": {
         "org.gradle.category": "library",
         "org.gradle.dependency.bundling": "external",
-        "org.gradle.jvm.version": 20,
+        "org.gradle.jvm.version": 11,
         "org.gradle.libraryelements": "jar",
         "org.gradle.usage": "java-runtime"
       },
@@ -57,11 +57,11 @@
         {
           "name": "codesubmission-client-1.0.0.jar",
           "url": "codesubmission-client-1.0.0.jar",
-          "size": 10287,
-          "sha512": "822f9e666853352bc5be1d8ce4a7785552eed831efcfd088c8c7e71ea9f651499452dc1732cbba21b6b389756816f4f7d1c64157379a710e74160e2f7bdb7281",
-          "sha256": "210138d4bdc2d1dcb1b14a7b28ef474b52c4f3d564ce6b6d1a80fd7046a48d4f",
-          "sha1": "a84a877d07100ed9aedcc3716a93c7af859aacbb",
-          "md5": "e2ba13cba183b989df5b2b5739dd75a9"
+          "size": 10147,
+          "sha512": "6ad81e4d01b9c41faf094ee49ec9563ad240bb2bcca1c873d1f1f302aebbe095fc39450531a588d515194cf89d3a2c91b2b95c4ef859591f551916a9462cf2a6",
+          "sha256": "7ee46178cfb6bf32ba91a870e4b01492bff3054ded69abaef0c504317692d2f0",
+          "sha1": "4253d7ddce685b52a0003e13887b4820dec47967",
+          "md5": "086f40b87aadf8a51b263b58d8b91d5c"
         }
       ]
     }
