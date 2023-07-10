@@ -10,7 +10,7 @@
   },
   "createdBy": {
     "gradle": {
-      "version": "8.1.1"
+      "version": "8.2"
     }
   },
   "variants": [
@@ -27,11 +27,11 @@
         {
           "name": "codesubmission-server-1.0.0.jar",
           "url": "codesubmission-server-1.0.0.jar",
-          "size": 94441,
-          "sha512": "9d486951ecdd825df2b98e5377f5feb8aeb1da71cd92b1e30424e893cbeb7f957bf61a2c7736a4244bd8101196a73f8111a3a591c6b50caf84acbb2e83d19776",
-          "sha256": "c3fa8659d01a9719395f9b0c9d8bdd4b53ba8fba0b5f2f5da4a76e7cc682271f",
-          "sha1": "63cb5ddd528275975a55db240bbc440a724e4a16",
-          "md5": "800c56dc4073ca02e29f57e197439a4c"
+          "size": 94685,
+          "sha512": "7eed4ad9d8cc3ca21a68c84a292c6366915334489fd5ae0584d2bed6557e1a7c9423ebe54c268c56cb9a8094ef2e1823c014ddab960043d9b29bee22c0e1d557",
+          "sha256": "b76843eb428186e4abe85f059bab95fbf2ffe3771c8ab95c9ca9aefc8342c971",
+          "sha1": "d9044ed4d8bcf6cb350505b11c8d0c55f83ef2bf",
+          "md5": "3950a86fc4e190ee65b6597ea748679c"
         }
       ]
     },
@@ -176,11 +176,11 @@
         {
           "name": "codesubmission-server-1.0.0.jar",
           "url": "codesubmission-server-1.0.0.jar",
-          "size": 94441,
-          "sha512": "9d486951ecdd825df2b98e5377f5feb8aeb1da71cd92b1e30424e893cbeb7f957bf61a2c7736a4244bd8101196a73f8111a3a591c6b50caf84acbb2e83d19776",
-          "sha256": "c3fa8659d01a9719395f9b0c9d8bdd4b53ba8fba0b5f2f5da4a76e7cc682271f",
-          "sha1": "63cb5ddd528275975a55db240bbc440a724e4a16",
-          "md5": "800c56dc4073ca02e29f57e197439a4c"
+          "size": 94685,
+          "sha512": "7eed4ad9d8cc3ca21a68c84a292c6366915334489fd5ae0584d2bed6557e1a7c9423ebe54c268c56cb9a8094ef2e1823c014ddab960043d9b29bee22c0e1d557",
+          "sha256": "b76843eb428186e4abe85f059bab95fbf2ffe3771c8ab95c9ca9aefc8342c971",
+          "sha1": "d9044ed4d8bcf6cb350505b11c8d0c55f83ef2bf",
+          "md5": "3950a86fc4e190ee65b6597ea748679c"
         }
       ]
     }
