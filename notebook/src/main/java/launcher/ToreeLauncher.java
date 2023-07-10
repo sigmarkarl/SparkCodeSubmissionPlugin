@@ -1,5 +1,15 @@
 package launcher;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import launcher.utils.SecurityUtils;
+import launcher.utils.SocketUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import sun.misc.Signal;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -15,20 +25,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-
-//import org.apache.toree.Main;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import launcher.utils.SecurityUtils;
-import launcher.utils.SocketUtils;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import sun.misc.Signal;
-
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 
 public class ToreeLauncher {
     static Logger logger = LoggerFactory.getLogger(ToreeLauncher.class);

@@ -1,15 +1,14 @@
 package launcher.utils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Random;
-
-//import org.apache.toree.utils.LogLike;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class SocketUtils /*implements LogLike*/ {
     static Logger logger = LoggerFactory.getLogger(SocketUtils.class);

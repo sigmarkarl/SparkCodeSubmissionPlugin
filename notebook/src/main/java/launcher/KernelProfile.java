@@ -1,10 +1,10 @@
 package launcher;
 
-import java.util.UUID;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import launcher.utils.SocketUtils;
+
+import java.util.UUID;
 
 public class KernelProfile {
     public int getHb_port() {

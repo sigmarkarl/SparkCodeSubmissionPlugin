@@ -16,7 +16,7 @@ import io.undertow.server.handlers.BlockingHandler;
 import io.undertow.util.Headers;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.spi.WebSocketHttpExchange;
-import launcher.ToreeLauncher;
+
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.RootAllocator;
@@ -424,7 +424,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                             var arguments = configOverridesMap.get("arguments");
                             if (arguments instanceof List) {
                                 var argumentsList = (List<String>) arguments;
-                                ToreeLauncher.main(argumentsList.toArray(String[]::new));
+                                //ToreeLauncher.main(argumentsList.toArray(String[]::new));
                                 /*var args = new ArrayList<String>();
                                 args.add("src/main/resources/launch_ipykernel.py");
                                 args.addAll(argumentsList);

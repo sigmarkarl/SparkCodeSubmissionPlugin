@@ -23,3 +23,4 @@ buildscript {
 }
 include("client")
 include("server")
+include("notebook")
