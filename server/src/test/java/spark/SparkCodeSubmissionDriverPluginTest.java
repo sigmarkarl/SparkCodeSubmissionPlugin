@@ -15,10 +15,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 public class SparkCodeSubmissionDriverPluginTest {
@@ -70,7 +67,7 @@ public class SparkCodeSubmissionDriverPluginTest {
     }
 
     static String PYTHON_CODE = "from pyspark.sql import SparkSession\n" +
-            "spark = SparkSession.builder.master(\"local\").appName(\"test\").getOrCreate()" +
+            "spark = SparkSession.builder.master(\"local\").appName(\"test\").getOrCreate()\n" +
             "spark.sql(\"select random()\").write.format(\"csv\").mode(\"overwrite\").save(\"test.csv\")";
 
     @Test
@@ -96,7 +93,7 @@ public class SparkCodeSubmissionDriverPluginTest {
 
     @Test
     public void testObjectMapper() throws IOException {
-        var codeSubmission = new CodeSubmission(CodeSubmissionType.SQL, "select random()", "", List.of(), Map.of(), "", "csv", "test.csv");
+        var codeSubmission = new CodeSubmission(CodeSubmissionType.SQL, "select random()", "", new ArrayList<>(), new LinkedHashMap<>(), "", "csv", "test.csv");
         var codeSubmissionJSON = mapper.writeValueAsString(codeSubmission);
         var codeSubmission2 = mapper.readValue(codeSubmissionJSON, CodeSubmission.class);
         Assertions.assertEquals(codeSubmission, codeSubmission2);

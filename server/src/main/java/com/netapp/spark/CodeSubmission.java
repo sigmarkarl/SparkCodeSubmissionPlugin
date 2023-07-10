@@ -13,6 +13,21 @@ public class CodeSubmission {
     String resultFormat;
     String resultsPath;
 
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof CodeSubmission) {
+            var cs = (CodeSubmission)obj;
+            return cs.type.equals(type) &&
+                    cs.code.equals(code) &&
+                    cs.className.equals(className) &&
+                    cs.arguments.equals(arguments) &&
+                    cs.config.equals(config) &&
+                    cs.resultFormat.equals(resultFormat) &&
+                    cs.resultsPath.equals(resultsPath);
+        }
+        return false;
+    }
+
     public CodeSubmissionType getType() {
         return type;
     }
