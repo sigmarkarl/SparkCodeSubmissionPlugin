@@ -40,6 +40,7 @@ dependencies {
     implementation("org.eclipse.jgit:org.eclipse.jgit:6.6.0.202305301015-r")
 
     implementation("com.google.guava:guava:32.1.1-jre")
+    implementation("com.google.guava:failureaccess:1.0.1")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -64,7 +65,7 @@ var theJvmArgs = listOf(
 
 jib {
     from {
-        image = "openjdk:21-jdk"
+        image = "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission:0.9.9"
         //image = "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission:baseimage-1.0.0"
         //version = "baseimage-1.0.0"
         platforms {
@@ -72,10 +73,10 @@ jib {
                 architecture = "amd64"
                 os = "linux"
             }
-            /*platform {
+            platform {
                 architecture = "arm64"
                 os = "linux"
-            }*/
+            }
         }
         if (project.hasProperty("REGISTRY_USER")) {
             auth {
@@ -85,7 +86,7 @@ jib {
         }
     }
     to {
-        image = project.findProperty("APPLICATION_REPOSITORY")?.toString() ?: "public.ecr.aws/l8m2k1n1/netapp/spark/notebookinit:1.0.0"
+        image = project.findProperty("APPLICATION_REPOSITORY")?.toString() ?: "public.ecr.aws/l8m2k1n1/netapp/spark/codesubmission:1.0.0"
         //version = "1.0.0"
         //tags = [project.findProperty("APPLICATION_TAG")?.toString() ?: "1.0"]
         if (project.hasProperty("REGISTRY_USER")) {
@@ -119,19 +120,22 @@ jib {
 //            }
 //        }
 //    }
-    //containerizingMode = "packaged"
+    containerizingMode = "packaged"
     container {
         //user = "app:app"
-        //entrypoint = listOf("/opt/entrypoint.sh")
-        //workingDirectory = "/opt/spark/work-dir/"
-        //appRoot = "/opt/spark/"
-        mainClass = "com.netapp.spark.SparkCodeSubmissionServer"
+        entrypoint = listOf("/opt/entrypoint.sh")
+        workingDirectory = "/opt/spark/work-dir/"
+        appRoot = "/opt/spark/"
+        //mainClass = "com.netapp.spark.SparkCodeSubmissionServer"
         //mainClass = "com.netapp.spark.SparkConnectWebsocketTranscodeDriverPlugin"
         //environment = mapOf("SPARK_REMOTE" to "sc://localhost")
         //environment = mapOf("JAVA_TOOL_OPTIONS" to "-Djdk.lang.processReaperUseDefaultStackSize=true --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED")
         jvmFlags = theJvmArgs
         //args = listOf("9001")
     }
+    /*extraDirectories {
+        permissions = mapOf("/opt/entrypoint.sh" to "777")
+    }*/
 }
 
 java {

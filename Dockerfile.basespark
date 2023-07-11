@@ -1,0 +1,3 @@
+FROM apache/spark:3.4.1-scala2.12-java11-python3-r-ubuntu
+
+COPY guava-32.1.1-jre.jar /opt/spark/jars/guava-14.0.1.jar

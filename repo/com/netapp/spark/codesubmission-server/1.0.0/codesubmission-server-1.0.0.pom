@@ -137,5 +137,11 @@
       <version>32.1.1-jre</version>
       <scope>runtime</scope>
     </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>failureaccess</artifactId>
+      <version>1.0.1</version>
+      <scope>runtime</scope>
+    </dependency>
   </dependencies>
 </project>

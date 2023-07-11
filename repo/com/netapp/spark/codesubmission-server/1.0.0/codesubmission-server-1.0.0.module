@@ -189,6 +189,13 @@
           "version": {
             "requires": "32.1.1-jre"
           }
+        },
+        {
+          "group": "com.google.guava",
+          "module": "failureaccess",
+          "version": {
+            "requires": "1.0.1"
+          }
         }
       ],
       "files": [
