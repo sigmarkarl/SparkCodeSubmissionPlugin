@@ -11,6 +11,9 @@ import java.nio.channels.WritableByteChannel;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
+import static com.netapp.spark.SparkCodeSubmissionDriverPlugin.PY4J_PORT;
+import static com.netapp.spark.SparkCodeSubmissionDriverPlugin.RBACKEND_PORT;
+
 public class SparkReceiveListener extends AbstractReceiveListener {
     Socket clientSocket;
     WritableByteChannel socketChannel;
@@ -31,7 +34,7 @@ public class SparkReceiveListener extends AbstractReceiveListener {
         //int port = bb.get(0) == 1 ? hivePort : grpcPort;
         //System.err.println(bb.get(0) + " " + bb.get(1) + " " + bb.get(2) + " " + bb.get(3) + " " + bb.get(4) + " " + bb.get(5) + " " + bb.get(6));
         int nport = portMap.getOrDefault(port, port);
-        if (port == nport+10) {
+        if (port == PY4J_PORT || port == RBACKEND_PORT) {
             clientSocket.connect(new InetSocketAddress("localhost", nport));
         } else {
             clientSocket.connect(new InetSocketAddress("0.0.0.0", nport));

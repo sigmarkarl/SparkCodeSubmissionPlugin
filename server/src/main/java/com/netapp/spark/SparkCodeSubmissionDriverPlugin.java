@@ -65,6 +65,8 @@ import static io.undertow.Handlers.websocket;
 
 public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plugin.DriverPlugin {
     static Logger logger = LoggerFactory.getLogger(SparkCodeSubmissionDriverPlugin.class);
+    static final int PY4J_PORT = 9441;
+    static final int RBACKEND_PORT = 9602;
     Undertow codeSubmissionServer;
     int port;
     ExecutorService virtualThreads;
@@ -133,7 +135,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             secret = py4jServer.secret();
             py4jServer.start();
 
-            portMap.put(9441, pyport);
+            portMap.put(PY4J_PORT, pyport);
 
             Map<String, String> sysenv = System.getenv();
             Field field = sysenv.getClass().getDeclaredField("m");
@@ -144,6 +146,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             env.put("PYSPARK_PIN_THREAD", "true");
 
             System.err.println("PYSPARK_GATEWAY_PORT: " + pyport);
+            System.err.println("PYSPARK_GATEWAY_SECRET: " + secret);
         }
         return RowFactory.create("py4j", pyport, secret);
     }
@@ -154,7 +157,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         rbackendPort = (Integer) tuple._1;
         rbackendSecret = tuple._2.secret();
 
-        portMap.put(9602, rbackendPort);
+        portMap.put(RBACKEND_PORT, rbackendPort);
 
         virtualThreads.submit(() -> {
             try {
@@ -163,6 +166,8 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                 logger.error("Failed to run RBackend", e);
             }
         });
+        System.err.println("RBACKEND_PORT: " + rbackendPort);
+        System.err.println("RBACKEND_SECRET: " + rbackendSecret);
         return RowFactory.create("rbackend", rbackendPort, rbackendSecret);
     }
 

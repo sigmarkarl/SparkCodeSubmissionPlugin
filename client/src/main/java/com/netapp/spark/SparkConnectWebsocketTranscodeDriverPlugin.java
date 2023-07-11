@@ -185,7 +185,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     }
 
     public static void main(String[] args) {
-        var ports = Arrays.stream(args[0].split(";")).mapToInt(Integer::parseInt).boxed().collect(Collectors.toList());
+        var ports = Arrays.stream(args[0].split(",")).mapToInt(Integer::parseInt).boxed().collect(Collectors.toList());
         var url = args[1];
         var auth = args.length > 2 ? args[2] : "";
         var plugin = new SparkConnectWebsocketTranscodeDriverPlugin(ports, url, auth);
