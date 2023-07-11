@@ -14,12 +14,8 @@ repositories {
 }
 
 dependencies {
-    implementation("org.apache.spark:spark-core_2.12:3.4.1") {
-        exclude(group = "com.google.guava")
-    }
-    implementation("org.apache.spark:spark-sql_2.12:3.4.1") {
-        exclude(group = "com.google.guava")
-    }
+    implementation("org.apache.spark:spark-core_2.12:3.4.1")
+    implementation("org.apache.spark:spark-sql_2.12:3.4.1")
     implementation("org.apache.spark:spark-connect_2.12:3.4.1")
     implementation("org.apache.spark:spark-repl_2.12:3.4.1")
     implementation("org.apache.spark:spark-hive_2.12:3.4.1")
