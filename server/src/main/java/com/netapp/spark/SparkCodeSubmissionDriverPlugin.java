@@ -67,6 +67,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     static Logger logger = LoggerFactory.getLogger(SparkCodeSubmissionDriverPlugin.class);
     static final int PY4J_PORT = 9441;
     static final int RBACKEND_PORT = 9602;
+    static final int FLIGHT_SQL_PORT = 33333;
     Undertow codeSubmissionServer;
     int port;
     ExecutorService virtualThreads;
@@ -82,6 +83,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     boolean done = false;
     List<String> costList = new ArrayList<>();
     Path workDir = Path.of("/opt/spark/work-dir");
+    Set<Integer> occupiedPorts = new HashSet<>();
 
     public SparkCodeSubmissionDriverPlugin() {
         this(-1);
@@ -724,7 +726,11 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     }*/
 
     void startFlightServer(SparkSession sparkSession) throws IOException, SQLException {
-        var location = Location.forGrpcInsecure("0.0.0.0", 33333);
+        if (occupiedPorts.contains(FLIGHT_SQL_PORT)) {
+            logger.info("Flight server already started");
+            return;
+        } else occupiedPorts.add(FLIGHT_SQL_PORT);
+        var location = Location.forGrpcInsecure("0.0.0.0", FLIGHT_SQL_PORT);
         var allocator = new RootAllocator();
         var flightServer = FlightServer.builder(allocator, location, new SparkSQLProducer(sparkSession)).build();
         flightServer.start();

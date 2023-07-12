@@ -32,6 +32,8 @@ repositories {
 
 dependencies {
     implementation("org.apache.spark:spark-core_2.12:3.4.1")
+    implementation("org.apache.hive:hive-jdbc:3.1.3")
+    implementation("org.apache.arrow:flight-sql-jdbc-core:12.0.1")
 
     testImplementation(platform("org.junit:junit-bom:5.9.1"))
     testImplementation("org.junit.jupiter:junit-jupiter")

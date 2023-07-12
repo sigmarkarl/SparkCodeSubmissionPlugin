@@ -28,10 +28,10 @@
           "name": "codesubmission-client-1.0.0.jar",
           "url": "codesubmission-client-1.0.0.jar",
           "size": 10146,
-          "sha512": "a0455547d9aec6b6948fa9b51e84bf758eed5fbbf4401748794405b81544633d29ee20791b2d20e88c32d7c65516127085a4aae015cf571b0f9cd627c297ecf1",
-          "sha256": "65b0b457a74fde9436f17fc1f32a4571a9bb8b74f5f43df3f44751059486128f",
-          "sha1": "82102824e6a32184b6652d3d7fc36838198b0f6c",
-          "md5": "529d203bbf57e993fa30bdf1d6b9d071"
+          "sha512": "7decd6fc48a692ae09fb68434a5a867e20fb7602f017420f19730134fc3b48ef7dc95e289fc6a5ccdb34ec7dd2aa02a9929a6d2e5a39699f089deab8b217d9f7",
+          "sha256": "6e20b8a7a65ccfa3102c39d47801aa19f5dde18186f0f8d024f4d9f250bc2217",
+          "sha1": "dbdcf1915311e1e6f1bbadaf4154d8b5f54f70fe",
+          "md5": "78474c64bce883a1b38f05f33320a87a"
         }
       ]
     },
@@ -51,6 +51,20 @@
           "version": {
             "requires": "3.4.1"
           }
+        },
+        {
+          "group": "org.apache.hive",
+          "module": "hive-jdbc",
+          "version": {
+            "requires": "3.1.3"
+          }
+        },
+        {
+          "group": "org.apache.arrow",
+          "module": "flight-sql-jdbc-core",
+          "version": {
+            "requires": "12.0.1"
+          }
         }
       ],
       "files": [
@@ -58,10 +72,10 @@
           "name": "codesubmission-client-1.0.0.jar",
           "url": "codesubmission-client-1.0.0.jar",
           "size": 10146,
-          "sha512": "a0455547d9aec6b6948fa9b51e84bf758eed5fbbf4401748794405b81544633d29ee20791b2d20e88c32d7c65516127085a4aae015cf571b0f9cd627c297ecf1",
-          "sha256": "65b0b457a74fde9436f17fc1f32a4571a9bb8b74f5f43df3f44751059486128f",
-          "sha1": "82102824e6a32184b6652d3d7fc36838198b0f6c",
-          "md5": "529d203bbf57e993fa30bdf1d6b9d071"
+          "sha512": "7decd6fc48a692ae09fb68434a5a867e20fb7602f017420f19730134fc3b48ef7dc95e289fc6a5ccdb34ec7dd2aa02a9929a6d2e5a39699f089deab8b217d9f7",
+          "sha256": "6e20b8a7a65ccfa3102c39d47801aa19f5dde18186f0f8d024f4d9f250bc2217",
+          "sha1": "dbdcf1915311e1e6f1bbadaf4154d8b5f54f70fe",
+          "md5": "78474c64bce883a1b38f05f33320a87a"
         }
       ]
     }
