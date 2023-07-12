@@ -81,6 +81,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
     JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
     boolean done = false;
     List<String> costList = new ArrayList<>();
+    Path workDir = Path.of("/opt/spark/work-dir");
 
     public SparkCodeSubmissionDriverPlugin() {
         this(-1);
@@ -229,9 +230,40 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         return runProcess(args, pythonEnv, cmd, inheritOutput, null);
     }
 
-    public String submitCode(SparkSession sqlContext, CodeSubmission codeSubmission, ObjectMapper mapper) throws IOException, ClassNotFoundException, NoSuchMethodException, URISyntaxException, ExecutionException, InterruptedException {
+    void gitCloneUrl(String checkoutGit) throws GitAPIException {
+        var uri = URI.create(checkoutGit);
+        var list = Arrays.stream(uri.getPath().split("/")).filter(s -> !s.isEmpty()).collect(Collectors.toList());
+        var repoName = list.get(list.size() - 1);
+        var repoDir = workDir.resolve(repoName);
+        logger.info("Checking out git repo " + checkoutGit + " to " + repoDir);
+        Git.cloneRepository().setURI(checkoutGit).setDirectory(repoDir.toFile()).call();
+    }
+
+    public String submitCode(SparkSession sqlContext, CodeSubmission codeSubmission, ObjectMapper mapper) throws IOException, ClassNotFoundException, NoSuchMethodException, URISyntaxException, ExecutionException, InterruptedException, GitAPIException, ApiException, SQLException {
         var defaultResponse = codeSubmission.type() + " code submitted";
         switch (codeSubmission.type()) {
+            case SERVICE:
+                var service = codeSubmission.code();
+                if (service.equalsIgnoreCase("flightsql")) {
+                    startFlightServer(sqlContext);
+                }
+                break;
+            case NOTEBOOK:
+                var notebook = codeSubmission.code();
+                var port = codeSubmission.arguments.size() > 0 ? codeSubmission.arguments.get(0) : "";
+                if (notebook.equalsIgnoreCase("JUPYTER")) {
+                    startCodeJupyter(workDir, port);
+                } else {
+                    startCodeServer(workDir, port);
+                }
+                break;
+            case GIT:
+                var gitcmd = codeSubmission.code();
+                if (gitcmd.equalsIgnoreCase("clone")) {
+                    var checkoutGit = codeSubmission.arguments.get(0);
+                    gitCloneUrl(checkoutGit);
+                }
+                break;
             case SQL:
                 var sqlCode = codeSubmission.code();
                 var resultsPath = codeSubmission.resultsPath();
@@ -445,7 +477,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                     logger.error("Failed to parse code submission", e);
                     exchange.getResponseSender().send("Failed to parse code submission");
                 } catch (IOException | URISyntaxException | ExecutionException | ClassNotFoundException |
-                         InterruptedException | NoSuchMethodException e) {
+                         InterruptedException | NoSuchMethodException | GitAPIException | ApiException | SQLException e) {
                     logger.error("Failed to submit code", e);
                     exchange.getResponseSender().send("Failed to submit code");
                 }
@@ -527,7 +559,18 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         runProcess(List.of("tunnel", "--cli-data-dir", workDir.toString(), "--accept-server-license-terms"), Collections.emptyMap(), codePath.toString(), true, null);
     }
 
-    void startCodeServer(Path workDir, int port) throws IOException, InterruptedException {
+    void startCodeServer(Path workDir) throws IOException, InterruptedException {
+        startCodeServer(workDir, "");
+    }
+
+    void startCodeServer(Path workDir, String codeServerPort) throws IOException, InterruptedException {
+        int port = 8080;
+        try {
+            port = Integer.parseInt(codeServerPort);
+        } catch (NumberFormatException e) {
+            logger.info("No default code server port: " + codeServerPort, e);
+        }
+
         var url = URI.create("https://code-server.dev/install.sh");
         var path = workDir.resolve("install.sh");
         var codeserver = workDir.resolve("bin").resolve("code-server");
@@ -590,8 +633,23 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         }
     }
 
-    void startCodeJupyter(Path workDir, int port, String appName) throws IOException, ApiException, InterruptedException {
+    void startCodeJupyter(Path workDir) throws IOException, ApiException, InterruptedException {
+        startCodeJupyter(workDir, "");
+    }
+
+    void startCodeJupyter(Path workDir, String jupyterServerPort) throws IOException, ApiException, InterruptedException {
         logger.info("Install JupyterLab");
+        int port = 8888;
+        try {
+            port = Integer.parseInt(jupyterServerPort);
+        } catch (NumberFormatException e) {
+            logger.info("No default code server port: " + jupyterServerPort, e);
+        }
+
+        var hostName = InetAddress.getLocalHost().getHostName();
+        logger.info("Starting jupyter server for host: " + hostName);
+        var appName = hostName.substring(0,hostName.lastIndexOf('-'));
+
         var installDir = workDir.resolve("jupyter");
         runProcess(List.of(
                 "install",
@@ -665,6 +723,15 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                 var hivePort = Integer.parseInt((hivePortStr == null || hivePortStr.isEmpty()) ? "10000" : hivePortStr);
     }*/
 
+    void startFlightServer(SparkSession sparkSession) throws IOException, SQLException {
+        var location = Location.forGrpcInsecure("0.0.0.0", 33333);
+        var allocator = new RootAllocator();
+        var flightServer = FlightServer.builder(allocator, location, new SparkSQLProducer(sparkSession)).build();
+        flightServer.start();
+        System.out.println("S1: Server (Location): Listening on port " + flightServer.getPort());
+        //flightServer.awaitTermination();
+    }
+
     void initConnections(SparkSession sparkSession, boolean useHive, boolean useFlight, List<Row> connectInfo) throws IOException, SQLException {
         if (useHive) {
             var hiveThriftServer = new HiveThriftServer2(sparkSession.sqlContext());
@@ -687,12 +754,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
         }
 
         if (useFlight) {
-            var location = Location.forGrpcInsecure("0.0.0.0", 33333);
-            var allocator = new RootAllocator();
-            var flightServer = FlightServer.builder(allocator, location, new SparkSQLProducer(sparkSession)).build();
-            flightServer.start();
-            System.out.println("S1: Server (Location): Listening on port " + flightServer.getPort());
-            //flightServer.awaitTermination();
+           startFlightServer(sparkSession);
         }
 
         var df = sparkSession.createDataset(connectInfo, RowEncoder.apply(StructType.fromDDL("type string, port int, secret string")));
@@ -714,25 +776,19 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
                     portMap.put(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
                 }
             }
-            var workDir = Path.of("/opt/spark/work-dir");
             var checkoutGit = sc.conf().get("spark.code.git.checkout", "");
             if (!checkoutGit.isEmpty()) {
-                var uri = URI.create(checkoutGit);
-                var list = Arrays.stream(uri.getPath().split("/")).filter(s -> !s.isEmpty()).collect(Collectors.toList());
-                var repoName = list.get(list.size() - 1);
-                var repoDir = workDir.resolve(repoName);
-                logger.info("Checking out git repo " + checkoutGit + " to " + repoDir);
-                Git.cloneRepository().setURI(checkoutGit).setDirectory(repoDir.toFile()).call();
+                gitCloneUrl(checkoutGit);
             }
 
-            var useSparkConnect = sc.conf().get("spark.code.submission.connect", "true");
+            var useSparkConnect =sc.conf().get("spark.code.submission.connect", "true");
             var usePySpark = sc.conf().get("spark.code.submission.pyspark", "true");
             var useRBackend = sc.conf().get("spark.code.submission.sparkr", "true");
             var useCodeTunnel = sc.conf().get("spark.code.tunnel", "false");
             var useCodeServer = sc.conf().get("spark.code.server.port", "");
             var useJupyterServer = sc.conf().get("spark.code.jupyter.port", "");
             var useHive = sc.conf().get("spark.code.submission.hive", "true");
-            var useFlight = sc.conf().get("spark.code.submission.flight", "true");
+            var useFlight = sc.conf().get("spark.code.submission.flight", "false");
             var useWebsockify = sc.conf().get("spark.code.submission.websockify", "false");
             if (useSparkConnect.equalsIgnoreCase("true")) SparkConnectService.start();
 
@@ -743,39 +799,22 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             connectInfo.forEach(row -> System.err.println("Connect info: " + row));
 
             if (useCodeServer.length()>0) {
-                int codeServerPort = 8080;
-                try {
-                    codeServerPort = Integer.parseInt(useCodeServer);
-                } catch (NumberFormatException e) {
-                    logger.info("No default code server port: " + useCodeServer, e);
-                }
-                int codeServerPortFinal = codeServerPort;
                 virtualThreads.submit(() -> {
                     try {
-                        startCodeServer(workDir, codeServerPortFinal);
+                        startCodeServer(workDir, useCodeServer);
                     } catch (IOException | InterruptedException e) {
                         logger.error("Error starting code server", e);
                     }
                 });
             }
             if (useJupyterServer.length()>0) {
-                int jupyterServerPort = 8888;
-                try {
-                    jupyterServerPort = Integer.parseInt(useJupyterServer);
-                } catch (NumberFormatException e) {
-                    logger.info("No default code server port: " + useJupyterServer, e);
-                }
-                int jupyterServerPortFinal = jupyterServerPort;
                 //var applicationId = sc.applicationId();
                 //var appName = sc.appName();
                 //var appId = sc.conf().getAppId();
                 //logger.info("Starting jupyter server for application: " + applicationId + " " + appName + " " + appId);
-                var hostName = InetAddress.getLocalHost().getHostName();
-                logger.info("Starting jupyter server for host: " + hostName);
-                var appId = hostName.substring(0,hostName.lastIndexOf('-'));
                 virtualThreads.submit(() -> {
                     try {
-                        startCodeJupyter(workDir, jupyterServerPortFinal, appId);
+                        startCodeJupyter(workDir, useJupyterServer);
                     } catch (IOException | ApiException | InterruptedException e) {
                         logger.error("Unable to start jupyter server", e);
                     }

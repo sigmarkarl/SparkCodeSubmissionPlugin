@@ -8,5 +8,8 @@ public enum CodeSubmissionType {
     R,
     SQL,
     COMMAND,
+    GIT,
+    NOTEBOOK,
+    SERVICE,
     COST
 }

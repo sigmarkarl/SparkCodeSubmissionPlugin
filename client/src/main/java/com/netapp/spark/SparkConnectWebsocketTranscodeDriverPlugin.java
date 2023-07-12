@@ -7,12 +7,14 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
-import java.sql.DriverManager;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,6 +27,22 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     List<Integer> ports = Collections.emptyList();
     String urlstr;
     Map<String,String> headers;
+    static int PY4J_PORT = 9441;
+    static int RBACKEND_PORT = 9602;
+    static int SPARK_CONNECT_PORT = 15002;
+    static int ARROW_FLIGHT_SQL_PORT = 33333;
+    static int HIVE_SQL_PORT = 10000;
+    static Map<String,Integer> portMap = new HashMap<>();
+
+    static {
+        portMap.put("hive", HIVE_SQL_PORT);
+        portMap.put("hiveserver2", HIVE_SQL_PORT);
+        portMap.put("flightsql", ARROW_FLIGHT_SQL_PORT);
+        portMap.put("arrowflightsql", ARROW_FLIGHT_SQL_PORT);
+        portMap.put("py4j", PY4J_PORT);
+        portMap.put("rbackend", RBACKEND_PORT);
+        portMap.put("sparkconnect", SPARK_CONNECT_PORT);
+    }
 
     public SparkConnectWebsocketTranscodeDriverPlugin(List<Integer> ports, String url, String header) {
         this();
@@ -49,12 +67,22 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
         return webSocketBuilder.buildAsync(java.net.URI.create(urlstr), wsListener).join();
     }
 
-    void servePort(int port) {
+    void servePort(int port) throws IOException, InterruptedException {
         servePort(port, 2);
     }
 
-    void servePort(int port, int version) {
+    void servePort(int port, int version) throws IOException, InterruptedException {
         System.err.println("Starting server on port " + port);
+        if (port == ARROW_FLIGHT_SQL_PORT) {
+            var httpClient = HttpClient.newHttpClient();
+            var response = httpClient.send(HttpRequest.newBuilder()
+                    .uri(URI.create(urlstr))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString("{'type','service','code':'flightsql'}"))
+                    .build(), HttpResponse.BodyHandlers.ofString());
+            logger.info(response.body());
+        }
+
         try (var serverSocket = new ServerSocket(port)) {
             var running = true;
             while (running) {
@@ -112,12 +140,18 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
 
     void startTranscodeServers(int version) {
         logger.info("Starting code submission server");
-        boolean fetchPorts = false;
+        //boolean fetchPorts = false;
         for (int port : ports) {
-            transcodeThreads.submit(() -> servePort(port, version));
-            fetchPorts = fetchPorts | port == 10000;
+            transcodeThreads.submit(() -> {
+                try {
+                    servePort(port, version);
+                } catch (IOException | InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            //fetchPorts = fetchPorts | port == 10000;
         }
-        if (fetchPorts) {
+        /*if (fetchPorts) {
             try (var connection = DriverManager.getConnection("jdbc:hive2://localhost:10000"); var statement = connection.createStatement();) {
                 var resultSet = statement.executeQuery("SELECT * FROM global_temp.spark_connect_info");
                 while (resultSet.next()) {
@@ -138,7 +172,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
             } catch (Exception e) {
                 logger.error("Error getting spark connect info", e);
             }
-        }
+        }*/
     }
 
     Map<String,String> initHeaders(String header) {
@@ -154,7 +188,13 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     @Override
     public Map<String,String> init(SparkContext sc, PluginContext myContext) {
         if (ports.size() == 0) {
-            ports = Arrays.stream(sc.getConf().get("spark.code.submission.ports", "15002").split(",")).mapToInt(Integer::parseInt).boxed().collect(Collectors.toList());
+            ports = Arrays.stream(sc.getConf().get("spark.code.submission.ports", "15002").split(",")).mapToInt(p -> {
+                try {
+                    return Integer.parseInt(p);
+                } catch (NumberFormatException e) {
+                    return portMap.get(p);
+                }
+            }).boxed().collect(Collectors.toList());
         }
         if (urlstr == null) {
             var fallbackUrl = "ws://localhost:9000";
