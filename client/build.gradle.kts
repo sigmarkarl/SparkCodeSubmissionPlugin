@@ -32,6 +32,8 @@ repositories {
 
 dependencies {
     implementation("org.apache.spark:spark-core_2.12:3.4.1")
+    implementation("org.apache.spark:spark-sql_2.12:3.4.1")
+    implementation("org.apache.spark:spark-catalyst_2.12:3.4.1")
     implementation("org.apache.hive:hive-jdbc:3.1.3")
     implementation("org.apache.arrow:flight-sql-jdbc-core:12.0.1")
 

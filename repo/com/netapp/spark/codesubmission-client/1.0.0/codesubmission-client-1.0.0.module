@@ -27,11 +27,11 @@
         {
           "name": "codesubmission-client-1.0.0.jar",
           "url": "codesubmission-client-1.0.0.jar",
-          "size": 10612,
-          "sha512": "c498864724848efe537b7e6a862e22be418e01c98b8d70cb75cd4895d2658fc13b4bcbc97eb4ad8bc0ef70b0ea81f91fdfd0f1eb8afdf3253e3590e5b2c3c8a8",
-          "sha256": "5ab8325680a99e728e83e4a5ec329a978d6ed0547b022625b7bde8797f1f79ea",
-          "sha1": "37b18dda11d571c246482a1ef3644470ff61dc75",
-          "md5": "30c89490125bd00b8e3386c66cb20131"
+          "size": 130983,
+          "sha512": "80045c61b17a9528ad9a724bdf12a047d2fdbe8ddf07a2aab8232047b358c77ab325859f14d87b84c0958b6abc57e620a55b9a7c119cb49148d87b72b9bfb665",
+          "sha256": "5e75a126add1801c5847cbfae98d734f2afa00a4eb2ff63fe726fbcb6625a3a4",
+          "sha1": "f69809d7799d554e73bd55e8face1dc83ca263d1",
+          "md5": "ddf8b41f391edbf906e21636c287d4ee"
         }
       ]
     },
@@ -48,6 +48,20 @@
         {
           "group": "org.apache.spark",
           "module": "spark-core_2.12",
+          "version": {
+            "requires": "3.4.1"
+          }
+        },
+        {
+          "group": "org.apache.spark",
+          "module": "spark-sql_2.12",
+          "version": {
+            "requires": "3.4.1"
+          }
+        },
+        {
+          "group": "org.apache.spark",
+          "module": "spark-catalyst_2.12",
           "version": {
             "requires": "3.4.1"
           }
@@ -71,11 +85,11 @@
         {
           "name": "codesubmission-client-1.0.0.jar",
           "url": "codesubmission-client-1.0.0.jar",
-          "size": 10612,
-          "sha512": "c498864724848efe537b7e6a862e22be418e01c98b8d70cb75cd4895d2658fc13b4bcbc97eb4ad8bc0ef70b0ea81f91fdfd0f1eb8afdf3253e3590e5b2c3c8a8",
-          "sha256": "5ab8325680a99e728e83e4a5ec329a978d6ed0547b022625b7bde8797f1f79ea",
-          "sha1": "37b18dda11d571c246482a1ef3644470ff61dc75",
-          "md5": "30c89490125bd00b8e3386c66cb20131"
+          "size": 130983,
+          "sha512": "80045c61b17a9528ad9a724bdf12a047d2fdbe8ddf07a2aab8232047b358c77ab325859f14d87b84c0958b6abc57e620a55b9a7c119cb49148d87b72b9bfb665",
+          "sha256": "5e75a126add1801c5847cbfae98d734f2afa00a4eb2ff63fe726fbcb6625a3a4",
+          "sha1": "f69809d7799d554e73bd55e8face1dc83ca263d1",
+          "md5": "ddf8b41f391edbf906e21636c287d4ee"
         }
       ]
     }
