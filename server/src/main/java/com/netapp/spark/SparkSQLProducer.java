@@ -155,10 +155,10 @@ public class SparkSQLProducer implements FlightSqlProducer {
     }
 
     public static void main(String[] args) {
-        init3(args);
+        init(args);
     }
 
-    public static void init3(String[] args) {
+    public static void init(String[] args) {
         var sql = "SELECT * FROM global_temp.spark_connect_info";
         /*var allocator = new RootAllocator();
         try (var client = new FlightSqlClient(FlightClient.builder(allocator, location).build())) {
@@ -179,8 +179,10 @@ public class SparkSQLProducer implements FlightSqlProducer {
         } catch (Exception e) {
             logger.error("Error getting spark connect info", e);
         }*/
+        //var jdbcUrl = "jdbc:hive2://localhost:9999";
+        var jdbcUrl = "jdbc:arrow-flight-sql://localhost:33333/?useEncryption=false";
 
-        try (var connection = DriverManager.getConnection("jdbc:arrow-flight-sql://localhost:33333/?useEncryption=false");
+        try (var connection = DriverManager.getConnection(jdbcUrl);
              var statement = connection.prepareStatement(sql);
              var resultSet = statement.executeQuery()) {
             while (resultSet.next()) {

@@ -21,7 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.spark.api.plugin.DriverPlugin {
-    static String DEFAULT_SUBMISSION_WEBSOCKET_URL = "wss://api.spotinst.io/ocean/spark/cluster/%s/app/%s/%s?accountId=%s";
+    static String DEFAULT_SUBMISSION_WEBSOCKET_URL = "api.spotinst.io/ocean/spark/cluster/%s/app/%s/%s?accountId=%s";
     static Logger logger = LoggerFactory.getLogger(SparkConnectWebsocketTranscodeDriverPlugin.class);
     ExecutorService transcodeThreads;
     List<Integer> ports = Collections.emptyList();
@@ -51,6 +51,14 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
         this.headers = initHeaders(header);
     }
 
+    public SparkConnectWebsocketTranscodeDriverPlugin(List<Integer> ports, String accountId, String clusterId, String entryPoint, String token, String appId) {
+        this();
+        this.ports = ports;
+        headers = new HashMap<>();
+        headers.put("Authorization", "Bearer "+token);
+        urlstr = String.format(DEFAULT_SUBMISSION_WEBSOCKET_URL, clusterId, appId, entryPoint, accountId);
+    }
+
     public SparkConnectWebsocketTranscodeDriverPlugin() {
         transcodeThreads = Executors.newFixedThreadPool(10);
     }
@@ -64,7 +72,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
         for (var h : headers.entrySet()) {
             webSocketBuilder = webSocketBuilder.header(h.getKey(), h.getValue());
         }
-        return webSocketBuilder.buildAsync(java.net.URI.create(urlstr), wsListener).join();
+        return webSocketBuilder.buildAsync(java.net.URI.create("wss://"+urlstr), wsListener).join();
     }
 
     void servePort(int port) throws IOException, InterruptedException {
@@ -74,13 +82,18 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
     void servePort(int port, int version) throws IOException, InterruptedException {
         System.err.println("Starting server on port " + port);
         if (port == ARROW_FLIGHT_SQL_PORT) {
-            var httpClient = HttpClient.newHttpClient();
-            var response = httpClient.send(HttpRequest.newBuilder()
-                    .uri(URI.create(urlstr))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString("{'type','service','code':'flightsql'}"))
-                    .build(), HttpResponse.BodyHandlers.ofString());
-            logger.info(response.body());
+            try {
+                var httpClient = HttpClient.newHttpClient();
+                var requestBuilder = HttpRequest.newBuilder();
+                for (var h : headers.entrySet()) {
+                    requestBuilder = requestBuilder.header(h.getKey(), h.getValue());
+                }
+                var request = requestBuilder.header("Content-Type", "application/json").uri(URI.create("https://"+urlstr)).POST(HttpRequest.BodyPublishers.ofString("{'type','service','code':'flightsql'}")).build();
+                var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                logger.info(response.body());
+            } catch (Exception e) {
+                logger.error("Error sending flightsql request", e);
+            }
         }
 
         try (var serverSocket = new ServerSocket(port)) {
@@ -175,6 +188,18 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
         }*/
     }
 
+    void getUrlStr(SparkContext sc) {
+        var fallbackUrl = "ws://localhost:9000";
+        var accountId = sc.getConf().get("spark.code.submission.accountId");
+        if (accountId != null && !accountId.isEmpty()) {
+            var clusterId = sc.getConf().get("spark.code.submission.clusterId");
+            var appId = sc.getConf().get("spark.code.submission.appId");
+            var entryPoint = sc.getConf().get("spark.code.submission.entryPoint", "connect");
+            fallbackUrl = String.format(DEFAULT_SUBMISSION_WEBSOCKET_URL, clusterId, appId, entryPoint, accountId);
+        }
+        urlstr = sc.getConf().get("spark.code.submission.url", fallbackUrl);
+    }
+
     Map<String,String> initHeaders(String header) {
         var headers = new HashMap<String,String>();
         var hsplit = header.split(",");
@@ -197,15 +222,7 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
             }).boxed().collect(Collectors.toList());
         }
         if (urlstr == null) {
-            var fallbackUrl = "ws://localhost:9000";
-            var accountId = sc.getConf().get("spark.code.submission.accountId");
-            if (accountId != null && !accountId.isEmpty()) {
-                var clusterId = sc.getConf().get("spark.code.submission.clusterId");
-                var appId = sc.getConf().get("spark.code.submission.appId");
-                var entryPoint = sc.getConf().get("spark.code.submission.entryPoint", "connect");
-                fallbackUrl = String.format(DEFAULT_SUBMISSION_WEBSOCKET_URL, clusterId, appId, entryPoint, accountId);
-            }
-            urlstr = sc.getConf().get("spark.code.submission.url", fallbackUrl);
+            getUrlStr(sc);
         }
         if (headers == null) {
             headers = initHeaders(sc.getConf().get("spark.code.submission.headers", ""));
@@ -226,9 +243,19 @@ public class SparkConnectWebsocketTranscodeDriverPlugin implements org.apache.sp
 
     public static void main(String[] args) {
         var ports = Arrays.stream(args[0].split(",")).mapToInt(Integer::parseInt).boxed().collect(Collectors.toList());
-        var url = args[1];
-        var auth = args.length > 2 ? args[2] : "";
-        var plugin = new SparkConnectWebsocketTranscodeDriverPlugin(ports, url, auth);
-        plugin.startTranscodeServers(2);
+        if (args.length > 5) {
+            var accountId = args[1];
+            var clusterId = args[2];
+            var entryPoint = args[3];
+            var token = args[4];
+            var appId = args[5];
+            var plugin = new SparkConnectWebsocketTranscodeDriverPlugin(ports, accountId, clusterId, entryPoint, token, appId);
+            plugin.startTranscodeServers(2);
+        } else {
+            var url = args[1];
+            var auth = args.length > 2 ? args[2] : "";
+            var plugin = new SparkConnectWebsocketTranscodeDriverPlugin(ports, url, auth);
+            plugin.startTranscodeServers(2);
+        }
     }
 }
