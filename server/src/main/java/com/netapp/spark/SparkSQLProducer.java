@@ -62,6 +62,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -198,7 +199,24 @@ public class SparkSQLProducer implements FlightSqlProducer {
 
     @Override
     public FlightInfo getFlightInfo(CallContext context, FlightDescriptor descriptor) {
-        return FlightSqlProducer.super.getFlightInfo(context, descriptor);
+        var cmd = new String(descriptor.getCommand());
+        if (cmd.startsWith("\n")) {
+            //var path = descriptor.getPath();
+            return FlightSqlProducer.super.getFlightInfo(context, descriptor);
+        } else {
+            var df = sparkSession.sql(cmd);
+            var timeZoneId = DateTimeUtils.TimeZoneUTC().getID();
+            var schema = ArrowUtils.toArrowSchema(df.schema(), timeZoneId);
+            var flightEndpoint = new FlightEndpoint(
+                    new Ticket(descriptor.getCommand()), location);
+
+            return new FlightInfo(
+                    schema,
+                    descriptor,
+                    Collections.singletonList(flightEndpoint),
+                    /*bytes=*/-1,
+                    df.count());
+        }
     }
 
     @Override
@@ -208,7 +226,30 @@ public class SparkSQLProducer implements FlightSqlProducer {
 
     @Override
     public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener) {
-        FlightSqlProducer.super.getStream(context, ticket, listener);
+        var cmd = new String(ticket.getBytes());
+        if (cmd.startsWith("\n")) {
+            FlightSqlProducer.super.getStream(context, ticket, listener);
+        } else {
+            var df = sparkSession.sql(cmd);
+            var timeZoneId = DateTimeUtils.TimeZoneUTC().getID();
+            var schema = ArrowUtils.toArrowSchema(df.schema(), timeZoneId);
+            try (final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
+                final VectorLoader loader = new VectorLoader(vectorSchemaRoot);
+                listener.start(vectorSchemaRoot);
+                var it = JavaConverters.asJavaIterator(df.toArrowBatchRdd().toLocalIterator());
+                while (it.hasNext()) {
+                    var arrowBatchBytes = it.next();
+                    var in = new ByteArrayInputStream(arrowBatchBytes);
+                    var arrowRecordBatch = MessageSerializer.deserializeRecordBatch(new ReadChannel(Channels.newChannel(in)), rootAllocator);
+                    loader.load(arrowRecordBatch);
+                    listener.putNext();
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            } finally {
+                listener.completed();
+            }
+        }
     }
 
     @Override
