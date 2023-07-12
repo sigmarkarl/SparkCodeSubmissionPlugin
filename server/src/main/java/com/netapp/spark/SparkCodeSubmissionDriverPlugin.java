@@ -730,7 +730,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             logger.info("Flight server already started");
             return;
         } else occupiedPorts.add(FLIGHT_SQL_PORT);
-        var location = Location.forGrpcInsecure("localhost", FLIGHT_SQL_PORT);
+        var location = Location.forGrpcInsecure("0.0.0.0", FLIGHT_SQL_PORT);
         var allocator = new RootAllocator();
         var flightServer = FlightServer.builder(allocator, location, new SparkSQLProducer(sparkSession)).build();
         flightServer.start();

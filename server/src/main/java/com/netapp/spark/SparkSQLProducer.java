@@ -155,10 +155,10 @@ public class SparkSQLProducer implements FlightSqlProducer {
     }
 
     public static void main(String[] args) {
-        init(args);
+        init2(args);
     }
 
-    public static void init(String[] args) {
+    public static void init2(String[] args) {
         var sql = "SELECT * FROM global_temp.spark_connect_info";
         /*var allocator = new RootAllocator();
         try (var client = new FlightSqlClient(FlightClient.builder(allocator, location).build())) {
