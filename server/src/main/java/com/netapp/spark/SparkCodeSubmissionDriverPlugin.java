@@ -794,7 +794,7 @@ public class SparkCodeSubmissionDriverPlugin implements org.apache.spark.api.plu
             var useCodeServer = sc.conf().get("spark.code.server.port", "");
             var useJupyterServer = sc.conf().get("spark.code.jupyter.port", "");
             var useHive = sc.conf().get("spark.code.submission.hive", "true");
-            var useFlight = sc.conf().get("spark.code.submission.flight", "false");
+            var useFlight = sc.conf().get("spark.code.submission.flight", "true");
             var useWebsockify = sc.conf().get("spark.code.submission.websockify", "false");
             if (useSparkConnect.equalsIgnoreCase("true")) SparkConnectService.start();
 
